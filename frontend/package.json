@@ -5,6 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "cookie": "^1.1.1",
+    "lucide-react": "^1.39.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router": "^7.14.2",
@@ -15,7 +16,9 @@
     "socket.io-client": "^4.8.3"
   },
   "scripts": {
-    "start": "react-scripts start"
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test"
   },
   "keywords": [],
   "author": "",
@@ -32,5 +35,11 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@craco/craco": "^7.1.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.19"
   }
 }

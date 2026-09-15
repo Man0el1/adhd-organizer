@@ -1,19 +1,53 @@
 import React from "react";
-import "./App.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Header from "./components/Header/Header.js"
-import Footer from "./components/Footer/Footer.js"
 
-import Main from "./pages/Main/Main.js";
+import Home from "./pages/Home.js";
+import ModuleList from "./pages/ModuleList.js";
+import Register from "./pages/Register.js";
+import Login from "./pages/Login.js"
+import Main from "./pages/Main.js"
+import Header from "./components/Header.js";
+import Footer from "./components/Footer.js";
 
 export default function App() {
   return (
     <Router>
-      <Header/>
       <Routes>
-        <Route path="/" element={<Main/>}/>
+        <Route path="/" element={
+          <>
+            <Header/>
+            <Home/>
+            <Footer/>
+          </>
+        }
+        />
+
+        <Route path="/module-list" element={
+          <>
+            <Header/>
+            <ModuleList/>
+          </>
+        }
+        />
+
+        <Route path="/register" element={
+          <>
+            <Header/>
+            <Register/>
+          </>
+        }
+        />
+
+        <Route path="/login" element={
+          <>
+            <Header/>
+            <Login/>
+          </>
+        }
+        />
+
+        <Route path="/main" element={<Main/>}/>
       </Routes>
-      <Footer/>
     </Router>
   );
 }
