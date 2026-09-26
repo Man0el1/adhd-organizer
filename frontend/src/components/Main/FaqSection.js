@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FAQ_ITEMS } from '../data/modulesData.js';
+import { FAQ_ITEMS } from '../../data/modulesData.js';
 import { ChevronDown, HelpCircle } from 'lucide-react';
 
 export function FaqSection() {

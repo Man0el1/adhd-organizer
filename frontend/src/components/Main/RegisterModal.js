@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AVAILABLE_MODULES } from '../data/modulesData.js';
+import { AVAILABLE_MODULES } from '../../data/modulesData.js';
 import {
   X,
   Check,

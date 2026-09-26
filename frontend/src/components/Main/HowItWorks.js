@@ -1,5 +1,5 @@
 import React from 'react';
-import { HOW_IT_WORKS_STEPS } from '../data/modulesData.js';
+import { HOW_IT_WORKS_STEPS } from '../../data/modulesData.js';
 import { Check, SlidersHorizontal, PanelLeft, Smile } from 'lucide-react';
 
 export function HowItWorks() {

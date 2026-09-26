@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Intro } from '../components/Intro.js';
-import { InteractiveSimulator } from '../components/InteractiveSimulator.js';
-import { HowItWorks } from '../components/HowItWorks.js';
-import { FaqSection } from '../components/FaqSection.js';
-import { RegisterModal } from '../components/RegisterModal.js';
+import { Intro } from '../components/Main/Intro.js';
+import { InteractiveSimulator } from '../components/Main/InteractiveSimulator.js';
+import { HowItWorks } from '../components/Main/HowItWorks.js';
+import { FaqSection } from '../components/Main/FaqSection.js';
+import { RegisterModal } from '../components/Main/RegisterModal.js';
 
 export default function Home() {
   const navigate = useNavigate();

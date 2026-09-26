@@ -32,11 +32,11 @@ export default function Header() {
 
           {/* Right links */}
           <div className="hidden md:flex items-center gap-3">
-            <Link to="/dashboard" id="header-login-btn" className="px-3.5 py-2 text-xs font-semibold text-[#D1BFA5] hover:text-[#F5E6DA] hover:bg-[#2D1F1F] rounded-xl transition-colors cursor-pointer flex items-center gap-1.5">
+            <Link to="/login" id="header-login-btn" className="px-3.5 py-2 text-xs font-semibold text-[#D1BFA5] hover:text-[#F5E6DA] hover:bg-[#2D1F1F] rounded-xl transition-colors cursor-pointer flex items-center gap-1.5">
               <LogIn className="w-3.5 h-3.5 text-[#A67C52]" /> Entrar
             </Link>
 
-            <Link to="/simulador" id="header-register-btn" className="px-4 py-2.5 text-xs sm:text-sm font-bold text-[#F5E6DA] bg-[#800020] hover:bg-[#A00028] rounded-xl shadow-lg transition-colors cursor-pointer flex items-center gap-2">
+            <Link to="/register" id="header-register-btn" className="px-4 py-2.5 text-xs sm:text-sm font-bold text-[#F5E6DA] bg-[#800020] hover:bg-[#A00028] rounded-xl shadow-lg transition-colors cursor-pointer flex items-center gap-2">
               <UserPlus className="w-4 h-4" /> Criar Conta Grátis
             </Link>
           </div>

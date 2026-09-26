@@ -1,22 +1,25 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../database/sequelize.js';
 
-export const Conta = sequelize.define('Conta', {
-  id_Conta: {
+export const Model = sequelize.define('Model', {
+  id_model: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  nome: {
+  name: {
     type: DataTypes.STRING,
-    allowNull: false,
-    unique: true
+    allowNull: false
   },
-  senha: {
-    type: DataTypes.STRING,
+  type: {
+    type: DataTypes.STRING, //change to ENUM later
     allowNull: false,
+  },
+  description: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
   }
 },{
-  tableName: "Conta",
+  tableName: "Model",
   timestamps: false
 });

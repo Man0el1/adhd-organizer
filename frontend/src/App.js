@@ -8,6 +8,7 @@ import Login from "./pages/Login.js"
 import Main from "./pages/Main.js"
 import Header from "./components/Header.js";
 import Footer from "./components/Footer.js";
+import Page404 from "./pages/Page404.js";
 
 export default function App() {
   return (
@@ -47,6 +48,13 @@ export default function App() {
         />
 
         <Route path="/main" element={<Main/>}/>
+        <Route path="*" element={
+          <>
+            <Header/>
+            <Page404/>
+          </>
+        }
+        />
       </Routes>
     </Router>
   );
