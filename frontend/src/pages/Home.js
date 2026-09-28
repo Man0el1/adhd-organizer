@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Intro } from '../components/Main/Intro.js';
-import { InteractiveSimulator } from '../components/Main/InteractiveSimulator.js';
-import { HowItWorks } from '../components/Main/HowItWorks.js';
-import { FaqSection } from '../components/Main/FaqSection.js';
-import { RegisterModal } from '../components/Main/RegisterModal.js';
+import { Intro } from '../components/Home/Intro.js';
+import { InteractiveSimulator } from '../components/Home/InteractiveSimulator.js';
+import { HowItWorks } from '../components/Home/HowItWorks.js';
+import { FaqSection } from '../components/Home/FaqSection.js';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -23,7 +22,7 @@ export default function Home() {
 
   const handleCompleteRegistration = () => {
     setIsRegisterOpen(false);
-    navigate('/dashboard');
+    navigate('/main');
   };
 
   const scrollToSimulator = () => {
@@ -37,9 +36,7 @@ export default function Home() {
     <div>
       <main className="min-h-screen bg-[#1E1414] text-[#F5E6DA] selection:bg-[#800020] selection:text-[#F5E6DA] font-sans antialiased">
         <Intro
-          onOpenRegister={() => handleOpenRegister()}
           onScrollToSimulator={scrollToSimulator}
-          onEnterDashboard={() => navigate('/dashboard')}
         />
 
         <section id="simulador">
@@ -49,15 +46,6 @@ export default function Home() {
         <HowItWorks />
 
         <FaqSection />
-
-        <RegisterModal
-          isOpen={isRegisterOpen}
-          onClose={() => setIsRegisterOpen(false)}
-          initialModules={selectedInitialModules}
-          onCompleteRegistration={handleCompleteRegistration}
-          isLoginMode={isLoginMode}
-          onSwitchMode={(mode) => setIsLoginMode(mode)}
-        />
       </main>
     </div>
   );

@@ -1,295 +1,615 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import {
+  Folder,
+  FolderPlus,
+  ChevronDown,
+  ChevronRight,
   Plus,
-  LayoutDashboard,
-  Calendar,
   Clock,
-  CheckSquare,
-  Sparkles,
-  ArrowLeft,
-  Settings,
-  Flame,
+  CalendarDays,
+  Calendar as CalendarIcon,
+  Trash2,
+  LogOut,
   Brain,
-  Layers,
-  ChevronRight
+  Layers
 } from 'lucide-react';
-import Pomodoro from '../components/ModelsUi/pomodoro.js';
+import Pomodoro from '../components/ModelsUi/Pomodoro.js';
+import Calendar from '../components/ModelsUi/Calendar.js';
+import Routine from '../components/ModelsUi/Routine.js';
+import BrainDump from '../components/ModelsUi/BrainDump.js';
+import FullScreenOverlay from '../components/ScreenOverlay.js';
+import { useNavigate } from 'react-router-dom';
 
-export default function Main() {
-  const [activeTab, setActiveTab] = useState('inicio');
-  const [modules, setModules] = useState([
-    { id: 'agenda-visual', name: 'Agenda Visual', desc: 'Linha do tempo diária com progresso', icon: Clock, count: '3 ativas' },
-    { id: 'calendario', name: 'Calendário & Lembretes', desc: 'Datas importantes sem sobrecarga', icon: Calendar, count: '2 eventos' },
-    { id: 'tarefas', name: 'Micro-Passos', desc: 'Decomposição de tarefas para TDAH', icon: CheckSquare, count: '5 pendentes' },
-  ]);
+export default function Main({userData}) {
+  const navigate = useNavigate();
 
-  const [newModuleName, setNewModuleName] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  const handleAddModule = (e) => {
-    e.preventDefault();
-    if (!newModuleName.trim()) return;
-    const newMod = {
-      id: `mod-${Date.now()}`,
-      name: newModuleName.trim(),
-      desc: 'Módulo personalizado adicionado',
-      icon: Layers,
-      count: 'Novo',
-    };
-    setModules([...modules, newMod]);
-    setNewModuleName('');
-    setShowAddModal(false);
+  const initialSpaces = () => {
+    const saved = localStorage.getItem('focusmod_spaces'); //TODO: Mudar para API real
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // fallback
+      }
+    }
+    return [
+      {
+        id: 'space-rotina',
+        name: 'Rotina & Foco',
+        icon: '☀️',
+        isOpen: true,
+      },
+      {
+        id: 'space-estudos',
+        name: 'Estudos & Prazos',
+        icon: '📚',
+        isOpen: true,
+      },
+      {
+        id: 'space-pessoal',
+        name: 'Espaço Pessoal',
+        icon: '🧠',
+        isOpen: false,
+      }
+    ];
   };
 
+  const logout = () => {
+    if (localStorage.getItem('token')) localStorage.removeItem('token');
+    navigate('/');
+  }
+
+  const initialModules = () => {
+    const saved = localStorage.getItem('focusmod_user_modules');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // fallback
+      }
+    }
+    return [
+      {
+        id: 'pomodoro-1',
+        name: 'Pomodoro Adaptativo',
+        type: 'pomodoro',
+        spaceId: 'space-rotina',
+      },
+      {
+        id: 'routine',
+        name: 'Agenda Visual',
+        type: 'routine',
+        spaceId: 'space-rotina',
+      },
+      {
+        id: 'calendario-1',
+        name: 'Calendário de Prazos',
+        type: 'calendario',
+        spaceId: 'space-estudos',
+      },
+      {
+        id: 'brain-dump',
+        name: 'Brain Dump',
+        type: 'brain-dump',
+        spaceId: 'space-pessoal',
+      },
+    ];
+  };
+
+  const [spaces, setSpaces] = useState(initialSpaces);
+  const [modules, setModules] = useState(initialModules);
+  const [activeModuleId, setActiveModuleId] = useState('pomodoro-1');
+
+  // Modals & Overlay state
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+  const [showCreateSpaceModal, setShowCreateSpaceModal] = useState(false);
+  const [showCreateModuleModal, setShowCreateModuleModal] = useState(false);
+  const [targetSpaceForNewModule, setTargetSpaceForNewModule] = useState('space-rotina');
+
+  // Form states for creating Space
+  const [newSpaceName, setNewSpaceName] = useState('');
+  const [newSpaceIcon, setNewSpaceIcon] = useState('📁');
+
+  // Form states for creating Module
+  const [newModuleName, setNewModuleName] = useState('');
+  const [newModuleType, setNewModuleType] = useState('pomodoro');
+
+  // Persist to localStorage
+  useEffect(() => {
+    localStorage.setItem('focusmod_spaces', JSON.stringify(spaces)); // TODO: Mudar para API real
+  }, [spaces]);
+
+  useEffect(() => {
+    localStorage.setItem('focusmod_user_modules', JSON.stringify(modules));
+  }, [modules]);
+
+  // Space management // TODO: spaces should be managed by API in the future
+  const toggleSpaceOpen = (spaceId) => {
+    setSpaces(spaces.map((s) => (s.id === spaceId ? { ...s, isOpen: !s.isOpen } : s)));
+  };
+
+  const handleCreateSpace = (e) => {
+    e.preventDefault();
+    if (!newSpaceName.trim()) return;
+    const newSpace = {
+      id: `space-${Date.now()}`,
+      name: newSpaceName.trim(),
+      icon: newSpaceIcon || '📁',
+      isOpen: true,
+    };
+    setSpaces([...spaces, newSpace]);
+    setNewSpaceName('');
+    setShowCreateSpaceModal(false);
+  };
+
+  const handleDeleteSpace = (spaceId, e) => {
+    e.stopPropagation();
+    if (spaces.length <= 1) return;
+    const remaining = spaces.filter((s) => s.id !== spaceId);
+    const fallbackSpaceId = remaining[0]?.id || 'geral';
+    setModules(
+      modules.map((m) => (m.spaceId === spaceId ? { ...m, spaceId: fallbackSpaceId } : m))
+    );
+    setSpaces(remaining);
+  };
+
+  // Module management // TODO modules precisa ser editado na api
+  const handleOpenCreateModule = (spaceId) => {
+    setTargetSpaceForNewModule(spaceId);
+    setNewModuleName('');
+    setNewModuleType('pomodoro');
+    setShowCreateModuleModal(true);
+  };
+
+  const handleCreateModule = (e) => {
+    e.preventDefault();
+    const type = newModuleType;
+    const defaultName = type === 'pomodoro' ? 'Pomodoro Adaptativo' : 'Calendário & Prazos';
+    const finalName = newModuleName.trim() || defaultName;
+
+    const newMod = {
+      id: `${type}-${Date.now()}`,
+      name: finalName,
+      type: type,
+      spaceId: targetSpaceForNewModule || spaces[0]?.id || 'space-rotina',
+    };
+
+    setModules([...modules, newMod]);
+    setActiveModuleId(newMod.id);
+    setShowCreateModuleModal(false);
+    setNewModuleName('');
+  };
+
+  const handleDeleteModule = (modId, e) => {
+    e.stopPropagation();
+    if (modules.length <= 1) return;
+    const remaining = modules.filter((m) => m.id !== modId);
+    setModules(remaining);
+    if (activeModuleId === modId) {
+      setActiveModuleId(remaining[0]?.id);
+    }
+  };
+
+  const getModuleIcon = (type, className = 'w-3.5 h-3.5') => { // TODO mudar type para nome
+    switch (type) {
+      case 'pomodoro':
+        return <Clock className={`${className} text-[#A67C52]`} />;
+      case 'calendario':
+        return <CalendarDays className={`${className} text-[#800020]`} />;
+      case 'routine':
+      case 'agenda-visual':
+        return <CalendarIcon className={`${className} text-[#A67C52]`} />;
+      case 'brain-dump':
+        return <Brain className={`${className} text-violet-400`} />;
+      default:
+        return <Layers className={`${className} text-[#A67C52]`} />;
+    }
+  };
+
+  const currentUserName = userData?.name || 'Membro FocusMod'; // TODO pegar nome do usuario na api
+  const activeModule = modules.find((m) => m.id === activeModuleId) || modules[0];
+
   return (
-    <div className="min-h-screen bg-[#1E1414] text-[#F5E6DA] selection:bg-[#800020] selection:text-[#F5E6DA]">
-      {/* Top Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-[#3D2B2B] bg-[#1E1414]/95 backdrop-blur-md">
-        <div className="flex h-full items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <Link
-              to="/"
-              className="w-9 h-9 rounded-xl bg-[#800020] flex items-center justify-center text-[#F5E6DA] font-bold text-lg shadow-md hover:bg-[#A00028] transition-colors"
-            >
-              F
-            </Link>
-            <div>
-              <h1 className="text-base sm:text-lg font-bold text-[#F5E6DA] leading-none">
-                Focus<span className="text-[#A67C52]">Mod</span>
-              </h1>
-              <span className="text-[10px] text-[#A67C52] uppercase font-semibold tracking-wider">
-                Área Principal
-              </span>
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#1E1414] text-[#F5E6DA] select-none">
+
+      {/* Top Navbar: Compact 48px (h-12) */}
+      <header className="h-12 border-b border-[#3D2B2B] bg-[#1E1414] px-4 flex items-center justify-between z-30 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-[#800020] flex items-center justify-center text-[#F5E6DA] font-bold text-sm shadow">
+            F
+          </div>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-sm font-bold text-[#F5E6DA] leading-none">
+              Focus<span className="text-[#A67C52]">Mod</span>
+            </h1>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2"> {/* TODO mudar currentname aqui*/}
+          <div className="h-3 w-px bg-[#3D2B2B] mx-1"></div>
+
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-6 rounded-full bg-[#800020] flex items-center justify-center text-[10px] font-bold text-[#F5E6DA]">
+              {currentUserName.charAt(0).toUpperCase()}
             </div>
+            <span className="text-xs font-medium text-[#F5E6DA] hidden md:inline truncate max-w-[120px]">
+              {currentUserName}
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Link
-              to="/dashboard"
-              className="px-3.5 py-1.5 rounded-xl bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] text-xs font-bold transition-colors shadow-md flex items-center gap-1.5"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>Abrir Painel Completo</span>
-            </Link>
-            <Link
-              to="/"
-              className="px-3 py-1.5 rounded-xl bg-[#2D1F1F] hover:bg-[#3D2B2B] border border-[#3D2B2B] text-[#D1BFA5] hover:text-[#F5E6DA] text-xs font-semibold transition-colors flex items-center gap-1.5"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Voltar ao Início</span>
-            </Link>
-          </div>
+          <button
+            type="button"
+            onClick={logout}
+            title="Sair"
+            className="p-1 rounded-lg bg-[#3D2B2B] hover:bg-[#800020] text-[#D1BFA5] hover:text-[#F5E6DA] transition-colors cursor-pointer text-xs"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
         </div>
       </header>
 
-      {/* Main Container */}
-      <div className="flex pt-16">
-        {/* Left Sidebar */}
-        <aside className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-60 sm:w-64 border-r border-[#3D2B2B] bg-[#251818] flex flex-col justify-between p-4 shrink-0 z-20">
-          <div className="space-y-4">
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold text-[#F5E6DA] bg-[#800020] hover:bg-[#A00028] rounded-xl shadow-md transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Criar Novo Módulo</span>
-            </button>
-
-            <div className="pt-2">
-              <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-[#A67C52] block mb-2">
-                Navegação
+      {/* Main Layout: Fixed 100% viewport, zero outer scroll */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+        {/* Left Sidebar: Compact, fits viewport TODO: mudar tamanho dos spaces e models*/}
+        <aside className="w-full md:w-72 bg-[#251818] border-r border-[#3D2B2B] flex flex-col justify-between shrink-0 overflow-hidden min-h-0">
+          {/* Top Section of Sidebar */}
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0 p-3">
+            {/* Header info */}
+            <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#3D2B2B] shrink-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#A67C52] flex items-center gap-1">
+                LOREM
               </span>
-              <nav className="flex flex-col gap-1.5">
-                {[
-                  { id: 'inicio', label: 'Visão Geral', icon: LayoutDashboard },
-                  { id: 'sobre', label: 'Sobre o Método', icon: Brain },
-                  { id: 'projetos', label: 'Meus Módulos', icon: Layers },
-                  { id: 'contato', label: 'Configurações', icon: Settings },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveTab(item.id)}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer text-left ${
-                        isActive
-                          ? 'bg-[#800020] text-[#F5E6DA] shadow-sm'
-                          : 'text-[#D1BFA5] hover:bg-[#2D1F1F] hover:text-[#F5E6DA]'
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-[#F5E6DA]' : 'text-[#A67C52]'}`} />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
+              <button
+                type="button"
+                onClick={() => setShowCreateSpaceModal(true)}
+                className="text-[10px] text-[#D1BFA5] hover:text-[#F5E6DA] flex items-center gap-0.5 cursor-pointer font-medium"
+              >
+                <Plus className="w-2.5 h-2.5 text-[#F5E6DA]" /> {/* TODO: deixar botao mais bonito */}
+                <span>Novo Space</span>
+              </button>
             </div>
-          </div>
 
-          {/* User profile / status indicator at bottom */}
-          <div className="p-3 rounded-xl bg-[#1E1414] border border-[#3D2B2B] text-xs">
-            <div className="flex items-center gap-2 text-[#A67C52] font-semibold mb-1">
-              <Flame className="w-4 h-4 text-[#800020]" />
-              <span>Foco & Clareza</span>
+            {/* Spaces List: Compact, internal scroll only if user creates many folders */}
+            <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5 min-h-0">
+              {spaces.map((space) => {
+                const spaceModules = modules.filter((m) => m.spaceId === space.id);
+                return (
+                  <div
+                    key={space.id}
+                    className="rounded-xl bg-[#1E1414]/70 border border-[#3D2B2B] overflow-hidden shrink-0"
+                  >
+                    {/* Space/Folder Header */}
+                    <div
+                      onClick={() => toggleSpaceOpen(space.id)}
+                      className="px-2.5 py-1.5 flex items-center justify-between cursor-pointer hover:bg-[#2D1F1F] transition-colors select-none group"
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-[10px] text-[#A67C52]">
+                          {space.isOpen ? (
+                            <ChevronDown className="w-3 h-3" />
+                          ) : (
+                            <ChevronRight className="w-3 h-3" />
+                          )}
+                        </span>
+                        <span className="text-xs">{space.icon || '📁'}</span>
+                        <span className="font-bold text-[11px] text-[#F5E6DA] truncate">
+                          {space.name}
+                        </span>
+                        <span className="text-[9px] bg-[#3D2B2B] text-[#D1BFA5] px-1 py-0.2 rounded-full font-mono">
+                          {spaceModules.length}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenCreateModule(space.id);
+                          }}
+                          title="Criar módulo nesta pasta"
+                          className="p-0.5 rounded hover:bg-[#800020] text-[#D1BFA5] hover:text-[#F5E6DA] cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                        {spaces.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteSpace(space.id, e)}
+                            title="Remover pasta"
+                            className="p-0.5 rounded hover:bg-[#800020] text-[#6D5A5A] hover:text-red-300 cursor-pointer"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Modules inside this Space */}
+                    {space.isOpen && (
+                      <div className="p-1 space-y-0.5 bg-[#1A1010]/60 border-t border-[#3D2B2B]">
+                        {spaceModules.length === 0 ? (
+                          <div className="py-1 text-center text-[10px] text-[#6D5A5A]">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCreateModule(space.id)}
+                              className="text-[#A67C52] hover:text-[#F5E6DA] underline cursor-pointer"
+                            >
+                              + Criar Pomodoro ou Calendário
+                            </button>
+                          </div>
+                        ) : (
+                          spaceModules.map((mod) => {
+                            const isActive = activeModuleId === mod.id;
+                            return (
+                              <div
+                                key={mod.id}
+                                onClick={() => setActiveModuleId(mod.id)}
+                                className={`w-full flex items-center justify-between px-2 py-1 rounded-lg text-[11px] font-medium cursor-pointer transition-colors group ${
+                                  isActive
+                                    ? 'bg-[#800020] text-[#F5E6DA] font-bold shadow-sm'
+                                    : 'text-[#D1BFA5] hover:bg-[#2D1F1F] hover:text-[#F5E6DA]'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <span>{getModuleIcon(mod.type, 'w-3 h-3')}</span>
+                                  <span className="truncate">{mod.name}</span>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  {isActive && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#A67C52] shrink-0"></span>
+                                  )}
+                                  {modules.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleDeleteModule(mod.id, e)}
+                                      title="Remover"
+                                      className="opacity-0 group-hover:opacity-100 hover:text-red-300 p-0.5"
+                                    >
+                                      <Trash2 className="w-2.5 h-2.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <p className="text-[11px] text-[#D1BFA5] leading-relaxed">
-              Sem estímulos caóticos ou notificações invasivas.
-            </p>
           </div>
         </aside>
 
-        {/* Dynamic Main Content */}
-        <main className="ml-60 sm:ml-64 w-full min-h-[calc(100vh-4rem)] p-6 sm:p-10 bg-[#1E1414]">
-          {activeTab === 'inicio' && (
-            <div className="max-w-4xl space-y-6">
-              <div className="p-6 rounded-2xl bg-[#2D1F1F] border border-[#3D2B2B] shadow-lg">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#3D2B2B] text-[#A67C52] text-xs font-bold uppercase tracking-wider mb-3">
-                  <Sparkles className="w-3.5 h-3.5" /> Espaço de Trabalho
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-[#F5E6DA] mb-2">
-                  Bem-vindo ao FocusMod
-                </h2>
-                <p className="text-sm text-[#D1BFA5] leading-relaxed">
-                  Aqui está o seu ambiente de rotina adaptativa. Utilize os módulos modulares na barra esquerda para gerenciar tarefas e compromissos no ritmo do seu cérebro.
-                </p>
-              </div>
+        {/* Central Work Canvas: Viewport-contained, zero page scroll */}
+        <main className="flex-1 bg-[#1E1414] p-3 sm:p-5 flex flex-col justify-center items-center overflow-hidden min-h-0">
+          <div className="w-full max-w-3xl flex-1 flex flex-col justify-center items-center overflow-hidden min-h-0">
+            {activeModule?.type === 'pomodoro' && (
+              <Pomodoro/>
+            )}
 
-              {/* Modules Quick List */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-[#A67C52]">
-                  Módulos Ativos na Sua Rotina
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {modules.map((m) => {
-                    const Icon = m.icon;
-                    return (
-                      <div
-                        key={m.id}
-                        className="p-4 rounded-xl bg-[#251818] border border-[#3D2B2B] hover:border-[#800020] transition-colors flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-[#800020] flex items-center justify-center text-[#F5E6DA]">
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm text-[#F5E6DA]">{m.name}</h4>
-                            <p className="text-xs text-[#A67C52]">{m.desc}</p>
-                          </div>
-                        </div>
-                        <span className="text-xs px-2.5 py-1 rounded-md bg-[#2D1F1F] border border-[#3D2B2B] text-[#D1BFA5] font-semibold">
-                          {m.count}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
+            {activeModule?.type === 'calendario' && (
+              <Calendar/>
+            )}
 
-          {activeTab === 'sobre' && (
-            //botar pomodoro aqui para testar
-            <div className="max-w-4xl space-y-6">
-              <Pomodoro />
-            </div>
-          )}
+            {(activeModule?.type === 'routine' || activeModule?.type === 'agenda-visual') && (
+              <Routine/>
+            )}
 
-          {activeTab === 'projetos' && (
-            <div className="max-w-4xl space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-[#F5E6DA]">Gerenciar Meus Módulos</h2>
-                  <p className="text-xs sm:text-sm text-[#D1BFA5]">Configure o que aparece na sua barra lateral</p>
-                </div>
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="px-4 py-2 bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar Módulo
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {modules.map((mod) => (
-                  <div key={mod.id} className="p-5 bg-[#251818] border border-[#3D2B2B] rounded-xl flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-base text-[#F5E6DA]">{mod.name}</span>
-                        <span className="text-xs text-[#A67C52]">{mod.count}</span>
-                      </div>
-                      <p className="text-xs text-[#D1BFA5]">{mod.desc}</p>
-                    </div>
-                    <div className="mt-4 pt-3 border-t border-[#3D2B2B] flex items-center justify-between">
-                      <span className="text-[11px] text-[#A67C52]">Ativo na barra</span>
-                      <Link to="/dashboard" className="text-xs text-[#F5E6DA] hover:text-[#A67C52] flex items-center gap-1 font-semibold">
-                        Ver no Painel <ChevronRight className="w-3 h-3" />
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'contato' && (
-            <div className="max-w-xl space-y-6">
-              <div className="p-6 rounded-2xl bg-[#2D1F1F] border border-[#3D2B2B] shadow-lg">
-                <h2 className="text-2xl font-bold text-[#F5E6DA] mb-3">Configurações & Preferências</h2>
-                <div className="space-y-4 text-xs sm:text-sm">
-                  <div className="p-3 bg-[#1E1414] rounded-xl border border-[#3D2B2B] flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-[#F5E6DA]">Tema Acolhedor Dark</p>
-                      <p className="text-xs text-[#A67C52]">Cores em marrom café e vinho (#800020)</p>
-                    </div>
-                    <span className="text-xs font-bold text-[#A67C52]">Padrão Ativo</span>
-                  </div>
-
-                  <div className="p-3 bg-[#1E1414] rounded-xl border border-[#3D2B2B] flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-[#F5E6DA]">Redução de Estímulos</p>
-                      <p className="text-xs text-[#A67C52]">Sem notificações sonoras invasivas</p>
-                    </div>
-                    <span className="text-xs font-bold text-[#A67C52]">Habilitado</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+            {activeModule?.type === 'brain-dump' && (
+              <BrainDump/>
+            )}
+          </div>
         </main>
       </div>
 
-      {/* Simple Add Module Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-[#2D1F1F] border border-[#3D2B2B] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-[#F5E6DA]">Criar Novo Módulo</h3>
-            <p className="text-xs text-[#D1BFA5]">
-              Dê um nome para a ferramenta ou lista que deseja fixar na sua rotina:
-            </p>
-            <form onSubmit={handleAddModule} className="space-y-4">
-              <input
-                type="text"
-                value={newModuleName}
-                onChange={(e) => setNewModuleName(e.target.value)}
-                placeholder="Ex: Diário de Dopamina, Hidratação..."
-                className="w-full px-4 py-2.5 rounded-xl bg-[#1E1414] border border-[#3D2B2B] text-[#F5E6DA] placeholder-[#A67C52]/60 text-sm focus:outline-none focus:border-[#800020]"
-                autoFocus
-              />
-              <div className="flex items-center justify-end gap-2 pt-2">
+      {/* REQUESTED: BOTTOM RIGHT FLOATING BUTTON WITH `+` */}
+      <button
+        type="button"
+        onClick={() => setIsOverlayOpen(true)}
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 w-12 h-12 rounded-full bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 cursor-pointer ring-2 ring-[#A67C52]/50 border border-[#800020]"
+        title="Abrir tela sobreposta (+)"
+      >
+        <Plus className="w-6 h-6 stroke-[2.5]" />
+      </button>
+
+      {/* FULL SCREEN OVERLAY */}
+      <FullScreenOverlay
+        isOpen={isOverlayOpen}
+        onClose={() => setIsOverlayOpen(false)}
+      />
+
+      {/* MODAL: CRIAR NOVA PASTA */}
+      {showCreateSpaceModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-[#251818] border border-[#3D2B2B] rounded-2xl p-5 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-[#3D2B2B] pb-2">
+              <h3 className="font-bold text-sm text-[#F5E6DA] flex items-center gap-1.5">
+                <FolderPlus className="w-4 h-4 text-[#A67C52]" />
+                <span>Nova Pasta (Space)</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCreateSpaceModal(false)}
+                className="text-[#D1BFA5] hover:text-[#F5E6DA] text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSpace} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-[#D1BFA5] mb-1">
+                  Nome da Pasta
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newSpaceName}
+                  onChange={(e) => setNewSpaceName(e.target.value)}
+                  placeholder="Ex: Trabalho, Estudos, Hábitos..."
+                  className="w-full bg-[#1E1414] border border-[#3D2B2B] focus:border-[#800020] rounded-lg px-2.5 py-1.5 text-xs text-[#F5E6DA] placeholder-[#6D5A5A] outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[#D1BFA5] mb-1">
+                  Ícone
+                </label>
+                <div className="flex gap-1.5">
+                  {['📁', '☀️', '📚', '💼', '🎯', '⚡', '🧠', '🌿'].map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setNewSpaceIcon(emoji)}
+                      className={`w-8 h-8 rounded-lg border text-sm flex items-center justify-center cursor-pointer transition-colors ${
+                        newSpaceIcon === emoji
+                          ? 'bg-[#800020] border-[#800020]'
+                          : 'bg-[#1E1414] border-[#3D2B2B] hover:bg-[#2D1F1F]'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#3D2B2B]">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-xl bg-[#1E1414] text-[#D1BFA5] hover:text-[#F5E6DA] text-xs font-semibold"
+                  onClick={() => setShowCreateSpaceModal(false)}
+                  className="px-3 py-1.5 rounded-lg bg-[#1E1414] text-[#D1BFA5] text-xs font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] text-xs font-bold transition-colors"
+                  className="px-4 py-1.5 rounded-lg bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] text-xs font-bold transition-all shadow cursor-pointer"
                 >
-                  Adicionar
+                  Criar Pasta
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CRIAR POMODORO OU CALENDÁRIO */}
+      {showCreateModuleModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-[#251818] border border-[#3D2B2B] rounded-2xl p-5 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-[#3D2B2B] pb-2">
+              <h3 className="font-bold text-sm text-[#F5E6DA] flex items-center gap-1.5">
+                <Plus className="w-4 h-4 text-[#A67C52]" />
+                <span>Adicionar Módulo à Pasta</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCreateModuleModal(false)}
+                className="text-[#D1BFA5] hover:text-[#F5E6DA] text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateModule} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-[#D1BFA5] mb-1.5">
+                  Tipo de Módulo:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewModuleType('pomodoro');
+                      if (!newModuleName || newModuleName === 'Calendário & Prazos') {
+                        setNewModuleName('Pomodoro Adaptativo');
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      newModuleType === 'pomodoro'
+                        ? 'bg-[#800020] border-[#800020] shadow ring-1 ring-[#A67C52]'
+                        : 'bg-[#1E1414] border-[#3D2B2B] hover:bg-[#2D1F1F]'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4 text-[#A67C52] mb-1" />
+                    <p className="font-bold text-xs text-[#F5E6DA]">Pomodoro</p>
+                    <p className="text-[10px] text-[#D1BFA5]">Hiperfoco</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewModuleType('calendario');
+                      if (!newModuleName || newModuleName === 'Pomodoro Adaptativo') {
+                        setNewModuleName('Calendário & Prazos');
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      newModuleType === 'calendario'
+                        ? 'bg-[#800020] border-[#800020] shadow ring-1 ring-[#A67C52]'
+                        : 'bg-[#1E1414] border-[#3D2B2B] hover:bg-[#2D1F1F]'
+                    }`}
+                  >
+                    <CalendarDays className="w-4 h-4 text-[#800020] mb-1" />
+                    <p className="font-bold text-xs text-[#F5E6DA]">Calendário</p>
+                    <p className="text-[10px] text-[#D1BFA5]">Prazos</p>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[#D1BFA5] mb-1">
+                  Nome do Módulo
+                </label>
+                <input
+                  type="text"
+                  value={newModuleName}
+                  onChange={(e) => setNewModuleName(e.target.value)}
+                  placeholder={
+                    newModuleType === 'pomodoro'
+                      ? 'Ex: Pomodoro Estudos...'
+                      : 'Ex: Calendário Pessoal...'
+                  }
+                  className="w-full bg-[#1E1414] border border-[#3D2B2B] focus:border-[#800020] rounded-lg px-2.5 py-1.5 text-xs text-[#F5E6DA] placeholder-[#6D5A5A] outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[#D1BFA5] mb-1">
+                  Pasta de Destino
+                </label>
+                <select
+                  value={targetSpaceForNewModule}
+                  onChange={(e) => setTargetSpaceForNewModule(e.target.value)}
+                  className="w-full bg-[#1E1414] border border-[#3D2B2B] rounded-lg px-2.5 py-1.5 text-xs text-[#F5E6DA] outline-none"
+                >
+                  {spaces.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.icon} {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#3D2B2B]">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModuleModal(false)}
+                  className="px-3 py-1.5 rounded-lg bg-[#1E1414] text-[#D1BFA5] text-xs font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] text-xs font-bold transition-all shadow cursor-pointer"
+                >
+                  Criar e Abrir
                 </button>
               </div>
             </form>
@@ -298,4 +618,4 @@ export default function Main() {
       )}
     </div>
   );
-}
+};

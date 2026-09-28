@@ -1,7 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 import { ArrowRight, CheckCircle2, Brain, Clock, Calendar, Layers, Sparkles, LogIn } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-export function Intro({onOpenRegister, onEnterDashboard}) {
+export function Intro() {
 
   const videoRef = useRef(null);
 
@@ -47,13 +48,13 @@ export function Intro({onOpenRegister, onEnterDashboard}) {
 
             {/* Main Buttons */}
             <div className="pt-2 flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-3">
-              <button type="button" onClick={onOpenRegister} id="hero-cta-register" className="w-full sm:w-auto px-7 py-3.5 text-base font-bold text-[#F5E6DA] bg-[#800020] hover:bg-[#A00028] rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2.5 cursor-pointer">
+              <Link to="/register" id="hero-cta-register" className="w-full sm:w-auto px-7 py-3.5 text-base font-bold text-[#F5E6DA] bg-[#800020] hover:bg-[#A00028] rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2.5 cursor-pointer">
                 Criar Minha Conta Grátis <ArrowRight className="w-5 h-5" />
-              </button>
+              </Link>
 
-              <button type="button" onClick={onEnterDashboard} id="hero-cta-dashboard"className="w-full sm:w-auto px-6 py-3.5 text-base font-bold text-[#F5E6DA] bg-[#2D1F1F] hover:bg-[#3D2B2B] border border-[#A67C52] rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md">
+              <Link to="/login" id="hero-cta-dashboard"className="w-full sm:w-auto px-6 py-3.5 text-base font-bold text-[#F5E6DA] bg-[#2D1F1F] hover:bg-[#3D2B2B] border border-[#A67C52] rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md">
                 <LogIn className="w-4 h-4 text-[#A67C52]" /> Entrar
-              </button>
+              </Link>
             </div>
 
             <p className="text-xs text-[#A67C52] flex items-center justify-center lg:justify-start gap-2 pt-1">

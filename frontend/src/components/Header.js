@@ -76,10 +76,10 @@ export default function Header() {
             </a>
           </nav>
           <div className="pt-3 border-t border-[#3D2B2B] flex flex-col gap-2">
-            <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} className="w-full py-2.5 text-center font-bold text-[#F5E6DA] bg-[#2D1F1F] border border-[#A67C52] rounded-xl flex items-center justify-center gap-2 cursor-pointer">
+            <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="w-full py-2.5 text-center font-bold text-[#F5E6DA] bg-[#2D1F1F] border border-[#A67C52] rounded-xl flex items-center justify-center gap-2 cursor-pointer">
               <Sparkles className="w-4 h-4 text-[#A67C52]" />Entrar
             </Link>
-            <Link to="/simulador" onClick={() => setMobileMenuOpen(false)} className="w-full py-2.5 text-center font-bold text-[#F5E6DA] bg-[#800020] rounded-xl cursor-pointer shadow-lg">
+            <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="w-full py-2.5 text-center font-bold text-[#F5E6DA] bg-[#800020] rounded-xl cursor-pointer shadow-lg">
               Criar Conta Grátis
             </Link>
           </div>
