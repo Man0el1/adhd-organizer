@@ -17,6 +17,6 @@ export const Account = sequelize.define('Account', {
     allowNull: false
   }
 },{
-  tableName: "Account",
+  tableName: 'Account',
   timestamps: true
 });

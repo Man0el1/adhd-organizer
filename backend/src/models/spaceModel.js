@@ -1,6 +1,5 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../database/sequelize.js';
-import { Account } from './accountModel.js';
 
 export const Space = sequelize.define('Space', {
   id_space: {
@@ -12,21 +11,21 @@ export const Space = sequelize.define('Space', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: Account,
-      key: 'id_account',
+      model: 'Account',
+      key: 'id_account'
     },
     onUpdate: 'CASCADE',
-    onDelete: 'CASCADE',
+    onDelete: 'CASCADE'
   },
   name: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: false
   },
   order: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-},{
-  tableName: "Space",
+    allowNull: false
+  }
+}, {
+  tableName: 'Space',
   timestamps: true
 });

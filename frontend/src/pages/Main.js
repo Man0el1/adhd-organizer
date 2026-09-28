@@ -14,6 +14,7 @@ import {
   Layers,
   ChevronRight
 } from 'lucide-react';
+import Pomodoro from '../components/ModelsUi/pomodoro.js';
 
 export default function Main() {
   const [activeTab, setActiveTab] = useState('inicio');
@@ -189,16 +190,9 @@ export default function Main() {
           )}
 
           {activeTab === 'sobre' && (
-            <div className="max-w-3xl space-y-6">
-              <div className="p-6 rounded-2xl bg-[#2D1F1F] border border-[#3D2B2B] shadow-lg">
-                <h2 className="text-2xl font-bold text-[#F5E6DA] mb-3">Sobre o Método FocusMod</h2>
-                <p className="text-sm text-[#D1BFA5] leading-relaxed mb-4">
-                  Tradicionais aplicativos de produtividade sobrecarregam pessoas com TDAH através de listas intermináveis de recursos, tags, árvores de subtarefas e notificações punitivas que alimentam a culpa.
-                </p>
-                <p className="text-sm text-[#D1BFA5] leading-relaxed">
-                  No FocusMod, nós invertemos essa lógica: você liga apenas os modelos de que precisa e os organiza em uma barra lateral limpa, intuitiva e acolhedora com tons terrosos suaves.
-                </p>
-              </div>
+            //botar pomodoro aqui para testar
+            <div className="max-w-4xl space-y-6">
+              <Pomodoro />
             </div>
           )}
 

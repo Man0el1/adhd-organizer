@@ -12,14 +12,14 @@ export const Model = sequelize.define('Model', {
     allowNull: false
   },
   type: {
-    type: DataTypes.STRING, //change to ENUM later
-    allowNull: false,
+    type: DataTypes.STRING,
+    allowNull: false
   },
   description: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+    type: DataTypes.TEXT,
+    allowNull: true
   }
-},{
-  tableName: "Model",
+}, {
+  tableName: 'Model',
   timestamps: false
 });

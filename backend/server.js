@@ -1,6 +1,7 @@
 import express from 'express';
 import sequelize from './src/database/sequelize.js';
 import routes from './src/routes.js';
+import './src/models/associations.js';
 import cors from 'cors';
 
 const app = express();
@@ -13,7 +14,7 @@ app.use(routes);
   try {
     await sequelize.authenticate();
     console.log('Banco de dados conectado com sucesso');
-    await sequelize.sync();
+    await sequelize.sync({ force: true });
 
     app.listen(8080, () => {
       console.log('Servidor rodando na porta 8080');
