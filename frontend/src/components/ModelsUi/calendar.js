@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2, Clock, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, AlertCircle } from 'lucide-react';
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -7,10 +7,10 @@ export default function Calendar() {
   const [showAddModal, setShowAddModal] = useState(false);
   
   const [events, setEvents] = useState([
-    { id: 'ev-1', day: 8, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Consulta Médica', time: '14:30', tag: 'Saúde', isCritical: false },
-    { id: 'ev-2', day: 15, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Entrega Projeto', time: '18:00', tag: 'Prazo', isCritical: true },
-    { id: 'ev-3', day: 22, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Contas & Assinaturas', time: '10:00', tag: 'Finanças', isCritical: false },
-    { id: 'ev-4', day: 28, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Revisão de Metas', time: '16:00', tag: 'Foco', isCritical: false },
+    { id: 'ev-1', day: 8, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Consulta Médica & Checagem', time: '14:30', tag: 'Saúde', isCritical: false },
+    { id: 'ev-2', day: 15, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Entrega Projeto & Relatório', time: '18:00', tag: 'Prazo', isCritical: true },
+    { id: 'ev-3', day: 22, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Contas, Faturas & Assinaturas', time: '10:00', tag: 'Finanças', isCritical: false },
+    { id: 'ev-4', day: 28, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Revisão de Metas e Hábitos', time: '16:00', tag: 'Foco', isCritical: false },
   ]);
 
   const [newEventTitle, setNewEventTitle] = useState('');
@@ -22,7 +22,7 @@ export default function Calendar() {
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
-  const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const weekDaysShort = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();

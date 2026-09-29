@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, ArrowRight, Lock, Mail, ArrowLeft } from 'lucide-react';
+import { LogIn, Lock, Mail, ArrowLeft, AlertCircle } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -15,21 +18,35 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    try{
-      let response = await fetch('http://localhost:8080/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json'},
-        body: JSON.stringify({email, senha})
-      });
-      let data = await response.json();
-      alert(data.message) // mudar de alert para algo customizado
-      if (!response.ok) return;
+    setErrorMsg('');
+    setSuccessMsg('');
+    setIsLoading(true);
 
-      localStorage.setItem("token");
-      navigate('/main');
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMsg(data.message || 'Erro ao realizar login.');
+        setIsLoading(false);
+        return;
+      }
+
+      setSuccessMsg(data.message || 'Login concluído com sucesso!');
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      setTimeout(() => {
+        navigate('/main');
+      }, 500);
     } catch (e) {
       console.error('Erro ao fazer login:', e);
-      alert('Erro ao fazer login. Por favor, tente novamente.');
+      setErrorMsg('Erro ao fazer login. Por favor, tente novamente.');
+      setIsLoading(false);
     }
   };
 
@@ -43,6 +60,19 @@ export default function Login() {
           <h1 className="text-2xl font-bold text-[#F5E6DA]">Entrar no FocusMod</h1>
           <p className="text-xs text-[#D1BFA5]">Acesse seus modelos e sua rotina personalizada</p>
         </div>
+
+        {errorMsg && (
+          <div className="p-3 rounded-xl bg-red-950/60 border border-red-700/50 text-red-200 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-emerald-200 text-xs flex items-center gap-2">
+            <span>{successMsg}</span>
+          </div>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
@@ -85,8 +115,13 @@ export default function Login() {
             </div>
           </div>
 
-          <button type="submit" className="w-full py-3 px-4 rounded-xl bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] font-bold text-sm shadow-lg transition-colors flex items-center justify-center gap-2 cursor-pointer mt-2">
-            <LogIn className="w-4 h-4" /> Entrar no Painel
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-3 px-4 rounded-xl bg-[#800020] hover:bg-[#A00028] disabled:opacity-50 text-[#F5E6DA] font-bold text-sm shadow-lg transition-colors flex items-center justify-center gap-2 cursor-pointer mt-2"
+          >
+            <LogIn className="w-4 h-4" />
+            <span>{isLoading ? 'Entrando...' : 'Entrar no Painel'}</span>
           </button>
         </form>
 

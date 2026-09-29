@@ -1,37 +1,53 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus, Lock, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { UserPlus, Lock, Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-  }, []);
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
     if (password && password !== confirmPassword) {
-      alert('As senhas não coincidem');
+      setErrorMsg('As senhas não coincidem.');
       return;
     }
-    try{
-      let response = await fetch('http://localhost:8080/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json'},
-        body: JSON.stringify({email, password, confirmPassword})
-      });
-      let data = await response.json();
-      alert(data.message)
-      if (!response.ok) return;
 
-      localStorage.setItem("token", data.token);
-      navigate('/main');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, confirmPassword })
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMsg(data.message || 'Erro ao registrar conta.');
+        setIsLoading(false);
+        return;
+      }
+
+      setSuccessMsg(data.message || 'Conta criada com sucesso!');
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      setTimeout(() => {
+        navigate('/main');
+      }, 500);
     } catch (e) {
-      console.error('Erro ao fazer login:', e);
-      alert('Erro ao registrar conta. Por favor, tente novamente.');
+      console.error('Erro ao registrar:', e);
+      setErrorMsg('Erro ao registrar conta. Por favor, tente novamente.');
+      setIsLoading(false);
     }
   };
 
@@ -45,6 +61,19 @@ export default function Register() {
           <h1 className="text-2xl font-bold text-[#F5E6DA]">Criar Conta no FocusMod</h1>
           <p className="text-xs text-[#D1BFA5]">Comece a organizar sua rotina sem sobrecarga mental</p>
         </div>
+
+        {errorMsg && (
+          <div className="p-3 rounded-xl bg-red-950/60 border border-red-700/50 text-red-200 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-emerald-200 text-xs flex items-center gap-2">
+            <span>{successMsg}</span>
+          </div>
+        )}
 
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
@@ -114,9 +143,11 @@ export default function Register() {
 
           <button
             type="submit"
-            className="w-full py-3 px-4 rounded-xl bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] font-bold text-sm shadow-lg transition-colors flex items-center justify-center gap-2 cursor-pointer mt-2"
+            disabled={isLoading}
+            className="w-full py-3 px-4 rounded-xl bg-[#800020] hover:bg-[#A00028] disabled:opacity-50 text-[#F5E6DA] font-bold text-sm shadow-lg transition-colors flex items-center justify-center gap-2 cursor-pointer mt-2"
           >
-            <UserPlus className="w-4 h-4" /> Criar Minha Conta
+            <UserPlus className="w-4 h-4" />
+            <span>{isLoading ? 'Criando conta...' : 'Criar Minha Conta'}</span>
           </button>
         </form>
 
