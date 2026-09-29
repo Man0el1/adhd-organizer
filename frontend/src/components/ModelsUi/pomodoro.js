@@ -65,12 +65,12 @@ export default function Pomodoro({ title = 'Pomodoro Adaptativo' }) {
   const progressPercent = totalSeconds > 0 ? Math.min(100, Math.max(0, ((totalSeconds - remainingSeconds) / totalSeconds) * 100)) : 0;
 
   return (
-    <div className="w-full max-w-xl mx-auto flex flex-col justify-center gap-3">
+    <div className="w-full h-full flex-1 flex flex-col justify-between bg-[#1E1414] p-4 sm:p-6 lg:p-8 min-h-0 overflow-y-auto">
       {/* Compact Header */}
-      <div className="bg-[#251818] border border-[#3D2B2B] rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col gap-3">
-        <div className="flex items-center justify-between border-b border-[#3D2B2B] pb-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#800020]/30 border border-[#800020] flex items-center justify-center text-[#F5E6DA]">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="bg-[#251818] border border-[#3D2B2B] rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 text-xs sm:text-sm flex-1 shadow-sm">
+          <div className="flex items-center gap-2 truncate flex-1">
+            <div className="text-[#A67C52] font-semibold shrink-0 flex items-center gap-1.5 text-xs">
               <Clock className="w-4 h-4 text-[#A67C52]" />
             </div>
             <div>

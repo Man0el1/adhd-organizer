@@ -71,172 +71,172 @@ export default function Calendar() {
   );
 
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col justify-center">
-      <div className="bg-[#251818] border border-[#3D2B2B] rounded-2xl p-4 shadow-lg flex flex-col gap-3">
-        {/* Top Header */}
-        <div className="flex items-center justify-between border-b border-[#3D2B2B] pb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#800020]/30 border border-[#800020] flex items-center justify-center text-[#F5E6DA]">
-              <CalendarIcon className="w-4 h-4 text-[#A67C52]" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-[#F5E6DA] leading-tight">popo hahah</h2>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleToday}
-              className="px-2.5 py-1 rounded-lg bg-[#1E1414] hover:bg-[#3D2B2B] border border-[#3D2B2B] text-[11px] font-semibold text-[#D1BFA5] transition-colors cursor-pointer"
-            >
-              Hoje
-            </button>
-            <div className="flex items-center bg-[#1E1414] border border-[#3D2B2B] rounded-lg p-0.5">
-              <button
-                type="button"
-                onClick={handlePrevMonth}
-                className="p-1 rounded hover:bg-[#3D2B2B] text-[#D1BFA5] hover:text-[#F5E6DA] cursor-pointer"
-                title="Mês Anterior"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <span className="text-xs font-bold text-[#F5E6DA] px-2.5">
-                {months[currentMonth]} {currentYear}
-              </span>
-              <button
-                type="button"
-                onClick={handleNextMonth}
-                className="p-1 rounded hover:bg-[#3D2B2B] text-[#D1BFA5] hover:text-[#F5E6DA] cursor-pointer"
-                title="Próximo Mês"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+    <div className="w-full h-full flex-1 flex flex-col justify-between bg-[#1E1414] p-4 sm:p-6 lg:p-8 min-h-0 overflow-y-auto gap-3.5">
+      {/* Top Bar: Controls directly at top (Title removed for maximum space) */}
+      <div className="flex items-center justify-between pb-1 gap-2">
+        <div className="flex items-center bg-[#251818] border border-[#3D2B2B] rounded-xl p-0.5 shadow-sm">
+          <button
+            type="button"
+            onClick={handlePrevMonth}
+            className="p-1.5 rounded-lg hover:bg-[#3D2B2B] text-[#D1BFA5] hover:text-[#F5E6DA] cursor-pointer transition-colors"
+            title="Mês Anterior"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-xs sm:text-sm font-bold text-[#F5E6DA] px-3">
+            {months[currentMonth]} {currentYear}
+          </span>
+          <button
+            type="button"
+            onClick={handleNextMonth}
+            className="p-1.5 rounded-lg hover:bg-[#3D2B2B] text-[#D1BFA5] hover:text-[#F5E6DA] cursor-pointer transition-colors"
+            title="Próximo Mês"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Compact Grid & Sidebar */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          {/* 3 Cols: Month matrix */}
-          <div className="md:col-span-3 bg-[#1E1414] border border-[#3D2B2B] rounded-xl p-3">
-            <div className="grid grid-cols-7 gap-1 text-center text-[11px] mb-1">
-              {weekDays.map((d, i) => (
-                <div key={i} className="text-[#A67C52] font-bold py-0.5">
-                  {d}
-                </div>
-              ))}
-            </div>
+        <button
+          type="button"
+          onClick={handleToday}
+          className="px-3.5 py-1.5 rounded-xl bg-[#251818] hover:bg-[#3D2B2B] border border-[#3D2B2B] text-xs font-semibold text-[#D1BFA5] hover:text-[#F5E6DA] transition-colors cursor-pointer shadow-sm"
+        >
+          Hoje
+        </button>
+      </div>
 
-            <div className="grid grid-cols-7 gap-1">
-              {[...Array(firstDayIndex)].map((_, i) => (
-                <div key={`empty-${i}`} className="h-8 rounded-lg bg-transparent opacity-20" />
-              ))}
+      {/* Spacious Grid & Sidebar: Uses full width and height */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
+        {/* Month matrix: 7 cols */}
+        <div className="lg:col-span-7 bg-[#251818] border border-[#3D2B2B] rounded-2xl p-3 sm:p-4 flex flex-col justify-between shadow-sm">
+          <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1.5">
+            {weekDaysShort.map((d, i) => (
+              <div key={i} className="text-[#A67C52] font-bold py-1 uppercase tracking-wider text-[11px]">
+                {d}
+              </div>
+            ))}
+          </div>
 
-              {[...Array(daysInCurrentMonth)].map((_, i) => {
-                const day = i + 1;
-                const isSelected = day === selectedDate;
-                const isToday =
-                  day === new Date().getDate() &&
-                  currentMonth === new Date().getMonth() &&
-                  currentYear === new Date().getFullYear();
-                
-                const dayEvents = events.filter(
-                  (ev) => ev.day === day && ev.month === currentMonth && ev.year === currentYear
-                );
-                const hasCritical = dayEvents.some((ev) => ev.isCritical);
+          <div className="grid grid-cols-7 gap-1.5 flex-1">
+            {[...Array(firstDayIndex)].map((_, i) => (
+              <div key={`empty-${i}`} className="min-h-[44px] sm:min-h-[50px] rounded-lg bg-transparent opacity-10" />
+            ))}
 
-                return (
-                  <button
-                    key={day}
-                    type="button"
-                    onClick={() => setSelectedDate(day)}
-                    className={`h-8 rounded-lg p-0.5 flex flex-col justify-between items-center transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#800020] text-[#F5E6DA] shadow font-bold ring-1 ring-[#A67C52]'
-                        : isToday
-                        ? 'bg-[#3D2B2B] text-[#F5E6DA] border border-[#A67C52]'
-                        : 'text-[#D1BFA5] hover:bg-[#251818]'
-                    }`}
-                  >
-                    <span className={`text-[11px] leading-none ${isToday && !isSelected ? 'text-[#A67C52]' : ''}`}>
-                      {day}
-                    </span>
+            {[...Array(daysInCurrentMonth)].map((_, i) => {
+              const day = i + 1;
+              const isSelected = day === selectedDate;
+              const isToday =
+                day === new Date().getDate() &&
+                currentMonth === new Date().getMonth() &&
+                currentYear === new Date().getFullYear();
+              
+              const dayEvents = events.filter(
+                (ev) => ev.day === day && ev.month === currentMonth && ev.year === currentYear
+              );
+              const hasCritical = dayEvents.some((ev) => ev.isCritical);
 
-                    {dayEvents.length > 0 && (
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => setSelectedDate(day)}
+                  className={`min-h-[44px] sm:min-h-[50px] rounded-xl p-1.5 flex flex-col justify-between items-center transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#800020] text-[#F5E6DA] shadow font-bold ring-2 ring-[#A67C52]'
+                      : isToday
+                      ? 'bg-[#1E1414] text-[#F5E6DA] border border-[#A67C52]'
+                      : 'text-[#D1BFA5] hover:bg-[#1E1414]'
+                  }`}
+                >
+                  <span className={`text-xs leading-none font-medium ${isToday && !isSelected ? 'text-[#A67C52]' : ''}`}>
+                    {day}
+                  </span>
+
+                  {dayEvents.length > 0 && (
+                    <div className="flex items-center gap-1 mt-0.5">
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
                           hasCritical ? 'bg-amber-400' : 'bg-[#A67C52]'
                         }`}
                       ></span>
-                    )}
-                  </button>
-                );
-              })}
+                      {dayEvents.length > 1 && (
+                        <span className="text-[10px] text-[#F5E6DA]/70 font-mono">
+                          +{dayEvents.length - 1}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Selected Day Events: 5 cols */}
+        <div className="lg:col-span-5 bg-[#251818] border border-[#3D2B2B] rounded-2xl p-3 sm:p-4 flex flex-col justify-between shadow-sm">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between border-b border-[#3D2B2B] pb-2 mb-2">
+              <div>
+                <span className="font-bold text-xs sm:text-sm text-[#F5E6DA]">
+                  Dia {selectedDate} de {months[currentMonth]}
+                </span>
+                <p className="text-[10px] text-[#A67C52]">Lembretes marcados</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="px-2.5 py-1 rounded-lg bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] text-xs font-semibold flex items-center gap-1 cursor-pointer shadow transition-all"
+              >
+                <Plus className="w-3 h-3" />
+                <span>+ Novo</span>
+              </button>
+            </div>
+
+            <div className="space-y-1.5 flex-1 overflow-y-auto pr-0.5">
+              {selectedDayEvents.length === 0 ? (
+                <div className="py-12 text-center text-xs text-[#6D5A5A] space-y-0.5">
+                  <p className="font-medium text-[#D1BFA5]">Nenhum lembrete para hoje.</p>
+                  <p className="text-[10px] text-[#A67C52]">Dia calmo e livre de cobranças!</p>
+                </div>
+              ) : (
+                selectedDayEvents.map((ev) => (
+                  <div
+                    key={ev.id}
+                    className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 shadow-sm ${
+                      ev.isCritical
+                        ? 'bg-[#1E1414] border-[#800020]'
+                        : 'bg-[#1E1414] border-[#3D2B2B]'
+                    }`}
+                  >
+                    <div className="truncate flex-1">
+                      <p className="font-semibold text-xs sm:text-sm text-[#F5E6DA] truncate">
+                        {ev.title}
+                      </p>
+                      <p className="text-[10px] text-[#A67C52] flex items-center gap-1 mt-0.5">
+                        <Clock className="w-2.5 h-2.5" />
+                        <span>{ev.time}</span>
+                        <span>•</span>
+                        <span className="px-1.5 py-0.2 rounded bg-[#251818] text-[#D1BFA5] text-[9px] font-semibold">{ev.tag}</span>
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEvent(ev.id)}
+                      className="text-[#6D5A5A] hover:text-red-400 p-1 rounded hover:bg-[#251818] transition-colors cursor-pointer"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
-          {/* 2 Cols: Selected Day Events */}
-          <div className="md:col-span-2 bg-[#1E1414] border border-[#3D2B2B] rounded-xl p-3 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between border-b border-[#3D2B2B] pb-2 mb-2">
-                <span className="font-bold text-xs text-[#F5E6DA]">
-                  Dia {selectedDate} de {months[currentMonth]}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(true)}
-                  className="px-2 py-0.5 rounded-md bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>Novo</span>
-                </button>
-              </div>
-
-              <div className="space-y-1.5 max-h-48 overflow-hidden">
-                {selectedDayEvents.length === 0 ? (
-                  <div className="py-6 text-center text-[11px] text-[#6D5A5A]">
-                    <p>Sem lembretes neste dia.</p>
-                    <p className="text-[10px] text-[#A67C52] mt-0.5">Espaço livre e calmo!</p>
-                  </div>
-                ) : (
-                  selectedDayEvents.slice(0, 3).map((ev) => (
-                    <div
-                      key={ev.id}
-                      className={`p-2 rounded-lg border flex items-center justify-between gap-1.5 ${
-                        ev.isCritical
-                          ? 'bg-[#251818] border-[#800020]'
-                          : 'bg-[#251818] border-[#3D2B2B]'
-                      }`}
-                    >
-                      <div className="truncate">
-                        <p className="font-semibold text-xs text-[#F5E6DA] truncate">
-                          {ev.title}
-                        </p>
-                        <p className="text-[10px] text-[#A67C52] flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5" />
-                          <span>{ev.time}</span>
-                          <span>•</span>
-                          <span>{ev.tag}</span>
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteEvent(ev.id)}
-                        className="text-[#6D5A5A] hover:text-red-400 p-0.5 cursor-pointer"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-[#3D2B2B] text-[10px] text-[#A67C52] truncate">
-              {events.length} lembrete(s) cadastrado(s) no total.
-            </div>
+          <div className="pt-2 border-t border-[#3D2B2B] text-xs text-[#A67C52] font-medium flex items-center justify-between">
+            <span>Total de lembretes:</span>
+            <span className="font-mono text-xs text-[#F5E6DA] bg-[#1E1414] px-2 py-0.5 rounded border border-[#3D2B2B]">{events.length}</span>
           </div>
         </div>
       </div>

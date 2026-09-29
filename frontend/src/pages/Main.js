@@ -190,7 +190,7 @@ export default function Main({userData}) {
     }
   };
 
-  const getModuleIcon = (type, className = 'w-3.5 h-3.5') => { // TODO mudar type para nome
+  const getModuleIcon = (type, className = 'w-4 h-4') => { // TODO mudar type para nome
     switch (type) {
       case 'pomodoro':
         return <Clock className={`${className} text-[#A67C52]`} />;
@@ -213,13 +213,13 @@ export default function Main({userData}) {
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#1E1414] text-[#F5E6DA] select-none">
 
       {/* Top Navbar: Compact 48px (h-12) */}
-      <header className="h-12 border-b border-[#3D2B2B] bg-[#1E1414] px-4 flex items-center justify-between z-30 shrink-0">
+      <header className="h-14 border-b border-[#3D2B2B] bg-[#1E1414] px-5 flex items-center justify-between z-30 shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-[#800020] flex items-center justify-center text-[#F5E6DA] font-bold text-sm shadow">
             F
           </div>
           <div className="flex items-center gap-1.5">
-            <h1 className="text-sm font-bold text-[#F5E6DA] leading-none">
+            <h1 className="text-base font-bold text-[#F5E6DA] leading-none">
               Focus<span className="text-[#A67C52]">Mod</span>
             </h1>
           </div>
@@ -232,7 +232,7 @@ export default function Main({userData}) {
             <div className="w-6 h-6 rounded-full bg-[#800020] flex items-center justify-center text-[10px] font-bold text-[#F5E6DA]">
               {currentUserName.charAt(0).toUpperCase()}
             </div>
-            <span className="text-xs font-medium text-[#F5E6DA] hidden md:inline truncate max-w-[120px]">
+            <span className="text-sm font-medium text-[#F5E6DA] hidden md:inline truncate max-w-[160px]">
               {currentUserName}
             </span>
           </div>
@@ -241,9 +241,9 @@ export default function Main({userData}) {
             type="button"
             onClick={logout}
             title="Sair"
-            className="p-1 rounded-lg bg-[#3D2B2B] hover:bg-[#800020] text-[#D1BFA5] hover:text-[#F5E6DA] transition-colors cursor-pointer text-xs"
+            className="p-1.5 rounded-lg bg-[#3D2B2B] hover:bg-[#800020] text-[#D1BFA5] hover:text-[#F5E6DA] transition-colors cursor-pointer text-xs"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
@@ -251,20 +251,20 @@ export default function Main({userData}) {
       {/* Main Layout: Fixed 100% viewport, zero outer scroll */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
         {/* Left Sidebar: Compact, fits viewport TODO: mudar tamanho dos spaces e models*/}
-        <aside className="w-full md:w-72 bg-[#251818] border-r border-[#3D2B2B] flex flex-col justify-between shrink-0 overflow-hidden min-h-0">
+        <aside className="w-full md:w-64 lg:w-72 bg-[#251818] border-r border-[#3D2B2B] flex flex-col justify-between shrink-0 overflow-hidden min-h-0 shadow-md">
           {/* Top Section of Sidebar */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0 p-3">
             {/* Header info */}
             <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#3D2B2B] shrink-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#A67C52] flex items-center gap-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#A67C52] flex items-center gap-1.5">
                 LOREM
               </span>
               <button
                 type="button"
                 onClick={() => setShowCreateSpaceModal(true)}
-                className="text-[10px] text-[#D1BFA5] hover:text-[#F5E6DA] flex items-center gap-0.5 cursor-pointer font-medium"
+                className="text-xs text-[#D1BFA5] hover:text-[#F5E6DA] px-2 py-0.5 rounded-lg bg-[#1E1414] hover:bg-[#800020] border border-[#3D2B2B] transition-colors flex items-center gap-1 cursor-pointer font-medium shadow-sm"
               >
-                <Plus className="w-2.5 h-2.5 text-[#F5E6DA]" /> {/* TODO: deixar botao mais bonito */}
+                <Plus className="w-3 h-3 text-[#F5E6DA]" /> {/* TODO: deixar botao mais bonito */}
                 <span>Novo Space</span>
               </button>
             </div>
@@ -286,16 +286,16 @@ export default function Main({userData}) {
                       <div className="flex items-center gap-1.5 truncate">
                         <span className="text-[10px] text-[#A67C52]">
                           {space.isOpen ? (
-                            <ChevronDown className="w-3 h-3" />
+                            <ChevronDown className="w-3.5 h-3.5" />
                           ) : (
-                            <ChevronRight className="w-3 h-3" />
+                            <ChevronRight className="w-3.5 h-3.5" />
                           )}
                         </span>
                         <span className="text-xs">{space.icon || '📁'}</span>
-                        <span className="font-bold text-[11px] text-[#F5E6DA] truncate">
+                        <span className="font-semibold text-xs sm:text-[13px] text-[#F5E6DA] truncate">
                           {space.name}
                         </span>
-                        <span className="text-[9px] bg-[#3D2B2B] text-[#D1BFA5] px-1 py-0.2 rounded-full font-mono">
+                        <span className="text-[10px] bg-[#3D2B2B] text-[#D1BFA5] px-1.5 py-0.2 rounded-full font-mono">
                           {spaceModules.length}
                         </span>
                       </div>
@@ -345,14 +345,14 @@ export default function Main({userData}) {
                               <div
                                 key={mod.id}
                                 onClick={() => setActiveModuleId(mod.id)}
-                                className={`w-full flex items-center justify-between px-2 py-1 rounded-lg text-[11px] font-medium cursor-pointer transition-colors group ${
+                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-medium cursor-pointer transition-all group ${
                                   isActive
                                     ? 'bg-[#800020] text-[#F5E6DA] font-bold shadow-sm'
                                     : 'text-[#D1BFA5] hover:bg-[#2D1F1F] hover:text-[#F5E6DA]'
                                 }`}
                               >
                                 <div className="flex items-center gap-1.5 truncate">
-                                  <span>{getModuleIcon(mod.type, 'w-3 h-3')}</span>
+                                  <span>{getModuleIcon(mod.type, 'w-3.5 h-3.5')}</span>
                                   <span className="truncate">{mod.name}</span>
                                 </div>
 
@@ -385,8 +385,8 @@ export default function Main({userData}) {
         </aside>
 
         {/* Central Work Canvas: Viewport-contained, zero page scroll */}
-        <main className="flex-1 bg-[#1E1414] p-3 sm:p-5 flex flex-col justify-center items-center overflow-hidden min-h-0">
-          <div className="w-full max-w-3xl flex-1 flex flex-col justify-center items-center overflow-hidden min-h-0">
+        <main className="flex-1 bg-[#1E1414] p-0 flex flex-col overflow-hidden min-h-0">
+          <div className="w-full h-full flex-1 flex flex-col min-h-0">
             {activeModule?.type === 'pomodoro' && (
               <Pomodoro/>
             )}
