@@ -27,7 +27,6 @@ export default function FullScreenOverlay({ isOpen, onClose }) {
       onClick={onClose}
       className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
     >
-      {/* Retângulo vertical por cima de tudo */}
       <div
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-md sm:max-w-lg h-[86vh] max-h-[780px] bg-[#251818] border border-[#3D2B2B] rounded-3xl shadow-2xl flex flex-col text-[#F5E6DA] overflow-hidden animate-in zoom-in-95 duration-200"
@@ -40,10 +39,10 @@ export default function FullScreenOverlay({ isOpen, onClose }) {
             </div>
             <div>
               <h2 className="text-sm font-bold text-[#F5E6DA] leading-tight">
-                Espaço Sobreposto
+                x
               </h2>
               <p className="text-[10px] text-[#A67C52]">
-                Retângulo vertical de ação rápida
+                x
               </p>
             </div>
           </div>
@@ -58,33 +57,23 @@ export default function FullScreenOverlay({ isOpen, onClose }) {
           </button>
         </header>
 
-        {/* Content Body: Vertical Card */}
         <div className="flex-1 p-5 flex flex-col justify-between overflow-y-auto">
           <div className="border-2 border-dashed border-[#4D3838] rounded-2xl p-6 text-center space-y-4 my-auto bg-[#1E1414]/50">
-            <div className="w-12 h-12 rounded-xl bg-[#800020]/20 border border-[#800020] mx-auto flex items-center justify-center text-[#800020]">
-              <Sparkles className="w-6 h-6 text-[#A67C52]" />
-            </div>
 
             <div className="space-y-1">
               <h3 className="text-base font-bold text-[#F5E6DA]">
-                Pronto para Customização
               </h3>
               <p className="text-xs text-[#D1BFA5] leading-relaxed">
-                Este retângulo vertical aparece por cima de todo o dashboard ao clicar no botão <span className="font-bold text-[#A67C52]">+</span>.
+                Adicionar funcionalidade do botao, transformar todas os modelos para interagir com o backend <span className="font-bold text-[#A67C52]">+</span>.
               </p>
             </div>
 
             <div className="p-3 rounded-xl bg-[#251818] border border-[#3D2B2B] text-left text-[11px] text-[#D1BFA5] space-y-1">
-              <p className="font-semibold text-[#F5E6DA]">💡 O que você pode colocar aqui:</p>
-              <ul className="list-disc pl-4 space-y-0.5 text-[#A67C52]">
-                <li>Criação expressa de tarefas ou hábitos</li>
-                <li>Notas rápidas de hiperfoco</li>
-                <li>Formulário ou timer adicional</li>
-              </ul>
+              <p className="font-semibold text-[#F5E6DA]"></p>
+
             </div>
           </div>
 
-          {/* Footer Action */}
           <div className="pt-3 border-t border-[#3D2B2B] flex items-center justify-end gap-2">
             <button
               type="button"

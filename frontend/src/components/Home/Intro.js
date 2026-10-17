@@ -74,7 +74,6 @@ export function Intro() {
           </div>
 
         </div>
-        {/* 4 Feature Pillars Grid */}
         <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
 
           <div className="bg-[#2D1F1F] p-5 rounded-2xl border border-[#3D2B2B] shadow-lg hover:border-[#800020] transition-colors">

@@ -20,7 +20,7 @@ import {
   Flame,
   Check
 } from 'lucide-react';
-
+{/* TODO: LEMBRAR DE RETIRAR E REFORMULAR TUDO ISSO DEPOIS*/}
 export function InteractiveSimulator({
   onOpenRegisterWithModules
 }) {

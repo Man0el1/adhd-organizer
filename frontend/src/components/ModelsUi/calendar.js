@@ -72,7 +72,6 @@ export default function Calendar() {
 
   return (
     <div className="w-full h-full flex-1 flex flex-col justify-between bg-[#1E1414] p-4 sm:p-6 lg:p-8 min-h-0 overflow-y-auto gap-3.5">
-      {/* Top Bar: Controls directly at top (Title removed for maximum space) */}
       <div className="flex items-center justify-between pb-1 gap-2">
         <div className="flex items-center bg-[#251818] border border-[#3D2B2B] rounded-xl p-0.5 shadow-sm">
           <button
@@ -105,9 +104,7 @@ export default function Calendar() {
         </button>
       </div>
 
-      {/* Spacious Grid & Sidebar: Uses full width and height */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
-        {/* Month matrix: 7 cols */}
         <div className="lg:col-span-7 bg-[#251818] border border-[#3D2B2B] rounded-2xl p-3 sm:p-4 flex flex-col justify-between shadow-sm">
           <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1.5">
             {weekDaysShort.map((d, i) => (
@@ -172,7 +169,6 @@ export default function Calendar() {
           </div>
         </div>
 
-        {/* Selected Day Events: 5 cols */}
         <div className="lg:col-span-5 bg-[#251818] border border-[#3D2B2B] rounded-2xl p-3 sm:p-4 flex flex-col justify-between shadow-sm">
           <div className="flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between border-b border-[#3D2B2B] pb-2 mb-2">
@@ -241,7 +237,7 @@ export default function Calendar() {
         </div>
       </div>
 
-      {/* Modal: Adicionar Lembrete */}
+      {/* Retirar adicionar lembrete depois */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-[#251818] border border-[#3D2B2B] rounded-2xl p-5 shadow-2xl space-y-3">

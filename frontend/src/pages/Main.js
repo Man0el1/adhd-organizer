@@ -247,14 +247,9 @@ export default function Main({userData}) {
           </button>
         </div>
       </header>
-
-      {/* Main Layout: Fixed 100% viewport, zero outer scroll */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
-        {/* Left Sidebar: Compact and clean */}
         <aside className="w-full md:w-64 lg:w-72 bg-[#251818] border-r border-[#3D2B2B] flex flex-col justify-between shrink-0 overflow-hidden min-h-0 shadow-md">
-          {/* Top Section of Sidebar */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0 p-3">
-            {/* Header info */}
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#3D2B2B] shrink-0">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#A67C52] flex items-center gap-1.5">
                 ESPAÇOS & MODELOS
@@ -269,7 +264,6 @@ export default function Main({userData}) {
               </button>
             </div>
 
-            {/* Spaces List: Balanced spacing */}
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5 min-h-0">
               {spaces.map((space) => {
                 const spaceModules = modules.filter((m) => m.spaceId === space.id);
@@ -384,7 +378,6 @@ export default function Main({userData}) {
           </div>
         </aside>
 
-        {/* Central Work Canvas: Full space, zero padding */}
         <main className="flex-1 bg-[#1E1414] p-0 flex flex-col overflow-hidden min-h-0">
           <div className="w-full h-full flex-1 flex flex-col min-h-0">
             {activeModule?.type === 'pomodoro' && (
@@ -406,7 +399,6 @@ export default function Main({userData}) {
         </main>
       </div>
 
-      {/* REQUESTED: BOTTOM RIGHT FLOATING BUTTON WITH `+` */}
       <button
         type="button"
         onClick={() => setIsOverlayOpen(true)}
@@ -416,13 +408,12 @@ export default function Main({userData}) {
         <Plus className="w-6 h-6 stroke-[2.5]" />
       </button>
 
-      {/* FULL SCREEN OVERLAY */}
       <FullScreenOverlay
         isOpen={isOverlayOpen}
         onClose={() => setIsOverlayOpen(false)}
       />
 
-      {/* MODAL: CRIAR NOVA PASTA */}
+      {/* Criar nova pasta */}
       {showCreateSpaceModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[#251818] border border-[#3D2B2B] rounded-2xl p-6 shadow-2xl space-y-4">
@@ -498,7 +489,7 @@ export default function Main({userData}) {
         </div>
       )}
 
-      {/* MODAL: CRIAR POMODORO OU CALENDÁRIO */}
+      {/* Criar pomodoro ou calendario, tirar depois para multiplos outros modulos*/}
       {showCreateModuleModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[#251818] border border-[#3D2B2B] rounded-2xl p-6 shadow-2xl space-y-4">

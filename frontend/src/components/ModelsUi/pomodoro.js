@@ -66,7 +66,6 @@ export default function Pomodoro() {
 
   return (
     <div className="w-full h-full flex-1 flex flex-col justify-between bg-[#1E1414] p-4 sm:p-6 lg:p-8 min-h-0 overflow-y-auto">
-      {/* Top Bar: Intention + Cycle count (Title removed for maximum workspace) */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="bg-[#251818] border border-[#3D2B2B] rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 text-xs sm:text-sm flex-1 shadow-sm">
           <div className="flex items-center gap-2 truncate flex-1">
@@ -106,7 +105,6 @@ export default function Pomodoro() {
         </div>
       </div>
 
-      {/* Interval preset selectors */}
       <div className="flex flex-wrap justify-center gap-2 my-2">
         {[
           { label: '15m (Rápido)', mins: 15, m: 'focus' },
@@ -137,7 +135,6 @@ export default function Pomodoro() {
         })}
       </div>
 
-      {/* Balanced Circular Display */}
       <div className="relative w-52 h-52 sm:w-60 sm:h-60 md:w-64 md:h-64 mx-auto my-3 flex items-center justify-center">
         <div className="absolute inset-0 rounded-full border-4 border-[#3D2B2B] bg-[#251818] shadow-inner"></div>
         {isRunning && (
@@ -164,7 +161,6 @@ export default function Pomodoro() {
         </div>
       </div>
 
-      {/* Action Controls */}
       <div className="flex items-center justify-center gap-3.5 my-2">
         <button
           type="button"
@@ -196,14 +192,6 @@ export default function Pomodoro() {
         >
           <RotateCcw className="w-4 h-4" />
         </button>
-      </div>
-
-      {/* ADHD Tip Bar */}
-      <div className="bg-[#251818]/90 border border-[#3D2B2B] rounded-xl px-4 py-2 text-xs text-[#D1BFA5] flex items-center gap-2">
-        <CheckCircle2 className="w-3.5 h-3.5 text-[#A67C52] shrink-0" />
-        <p className="truncate">
-          <strong className="text-[#F5E6DA]">Dica TDAH:</strong> Começar é a parte mais difícil. 15 minutos são suficientes para vencer a inércia.
-        </p>
       </div>
     </div>
   );
