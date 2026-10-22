@@ -7,19 +7,33 @@ export const Task = sequelize.define('Task', {
     primaryKey: true,
     autoIncrement: true
   },
-  id_space: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: 'Space',
-      key: 'id_space'
-    },
-    onUpdate: 'CASCADE',
-    onDelete: 'CASCADE'
-  },
   name: {
     type: DataTypes.STRING,
     allowNull: false
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  date: {
+    type: DataTypes.DATEONLY,
+    allowNull: true
+  },
+  start_time: {
+    type: DataTypes.TIME,
+    allowNull: true
+  },
+  end_time: {
+    type: DataTypes.TIME,
+    allowNull: true
+  },
+  recurrence: {
+    type: DataTypes.STRING,
+    defaultValue: 'none' // 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+  },
+  done: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
 }, {
   tableName: 'Task',

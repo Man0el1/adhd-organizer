@@ -1,31 +1,33 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../database/sequelize.js';
 
-export const Space = sequelize.define('Space', {
-  id_space: {
+export const Task_Model = sequelize.define('Task_Model', {
+  id_task_model: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  id_account: {
+  id_task: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Account',
-      key: 'id_account'
+      model: 'Task',
+      key: 'id_task'
     },
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE'
   },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  order: {
+  id_model: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: false,
+    references: {
+      model: 'Model',
+      key: 'id_model'
+    },
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE'
   }
 }, {
-  tableName: 'Space',
-  timestamps: true
+  tableName: 'Task_Model',
+  timestamps: false
 });

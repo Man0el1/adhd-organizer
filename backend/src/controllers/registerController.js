@@ -4,9 +4,12 @@ import bcrypt from 'bcrypt';
 
 export const createAccount = async (req, res) => {
   try {
-    const {email, password, confirmPassword} = req.body;
+    const {username, email, password, confirmPassword} = req.body;
 
     if (password !== confirmPassword) return res.status(403).json({message: "Senhas precisam ser iguais."});
+
+    const existingUsername = await Account.findOne({where: {username: username}})
+    if (existingUsername) return res.status(409).json({message: "Nome de usuário ja existe."});
 
     const account = await Account.findOne({where: {email: email}})
     if (account) return res.status(403).json({message: "Conta ja existe."});
@@ -19,7 +22,7 @@ export const createAccount = async (req, res) => {
     })
 
     const token = jwt.sign(
-      { id: newAccount.id_account },
+      { id: newAccount.id_account, username: newAccount.username, email: newAccount.email },
       process.env.JWT_SECRET,
       { expiresIn: "1h" } // mudar depois, talvez parar de usar tokens
     );

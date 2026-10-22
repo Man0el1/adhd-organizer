@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus, Lock, Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function Register() {
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -24,7 +25,7 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/register', {
+      const response = await fetch('http://localhost:8080/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, confirmPassword })
@@ -76,6 +77,7 @@ export default function Register() {
         )}
 
         <form onSubmit={handleRegister} className="space-y-4">
+
           <div>
             <label className="block text-xs font-bold text-[#A67C52] uppercase tracking-wider mb-1.5" htmlFor="email">
               Email

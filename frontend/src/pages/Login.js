@@ -4,6 +4,7 @@ import { LogIn, Lock, Mail, ArrowLeft, AlertCircle } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -26,8 +27,13 @@ export default function Login() {
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ username, email, password })
       });
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('A API não respondeu em JSON. Verifique se o backend está em execução na porta 8080.');
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -45,7 +51,7 @@ export default function Login() {
       }, 500);
     } catch (e) {
       console.error('Erro ao fazer login:', e);
-      setErrorMsg('Erro ao fazer login. Por favor, tente novamente.');
+      setErrorMsg(e instanceof Error ? e.message : 'Erro ao fazer login. Por favor, tente novamente.');
       setIsLoading(false);
     }
   };
@@ -109,7 +115,7 @@ export default function Login() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="--------"
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#1E1414] border border-[#3D2B2B] focus:border-[#800020] text-sm text-[#F5E6DA] placeholder-[#A67C52]/50 focus:outline-none transition-colors"
               />
             </div>

@@ -14,7 +14,7 @@ app.use(routes);
   try {
     await sequelize.authenticate();
     console.log('Banco de dados conectado com sucesso');
-    await sequelize.sync({ force: true });
+    await sequelize.sync();
 
     app.listen(8080, () => {
       console.log('Servidor rodando na porta 8080');

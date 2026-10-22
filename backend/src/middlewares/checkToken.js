@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { Conta } from "../models/contaModel.js";
+import { Account } from "../models/accountModel.js";
 
 export async function checkToken(req, res, next) {
   const authHeader = req.headers['authorization']; // Bearer <token>
@@ -9,9 +9,9 @@ export async function checkToken(req, res, next) {
 
   try {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-    const usuario = await Conta.findByPk(decodedToken.id);
+    const user = await Account.findByPk(decodedToken.id);
 
-    if (!usuario) return res.status(401).json({ message: "Sessão expirada. Faça login novamente"});
+    if (!user) return res.status(401).json({ message: "Sessão expirada. Faça login novamente"});
 
     req.user = decodedToken;
     next();

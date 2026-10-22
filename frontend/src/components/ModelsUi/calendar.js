@@ -1,22 +1,24 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  Clock,
+  CalendarDays,
+  Loader2,
+  Repeat,
+  AlignLeft,
+} from 'lucide-react';
 
-export default function Calendar() {
+export default function Calendar({ modelInstance }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
-  const [showAddModal, setShowAddModal] = useState(false);
-  
-  const [events, setEvents] = useState([
-    { id: 'ev-1', day: 8, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Consulta Médica & Checagem', time: '14:30', tag: 'Saúde', isCritical: false },
-    { id: 'ev-2', day: 15, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Entrega Projeto & Relatório', time: '18:00', tag: 'Prazo', isCritical: true },
-    { id: 'ev-3', day: 22, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Contas, Faturas & Assinaturas', time: '10:00', tag: 'Finanças', isCritical: false },
-    { id: 'ev-4', day: 28, month: currentDate.getMonth(), year: currentDate.getFullYear(), title: 'Revisão de Metas e Hábitos', time: '16:00', tag: 'Foco', isCritical: false },
-  ]);
+  const [rawTasks, setRawTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [newEventTitle, setNewEventTitle] = useState('');
-  const [newEventTime, setNewEventTime] = useState('10:00');
-  const [newEventTag, setNewEventTag] = useState('Prazo');
-  const [newEventIsCritical, setNewEventIsCritical] = useState(false);
+  const modelId = modelInstance?.id || 'calendario';
+  const modelType = modelInstance?.type || 'calendario';
+  const displayName = modelInstance?.name || 'Calendário';
 
   const months = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -29,6 +31,41 @@ export default function Calendar() {
 
   const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
   const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+  // Fetch tasks for calendar model from backend
+  const fetchTasks = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(
+        `/api/tasks?modelId=${encodeURIComponent(modelId)}&modelType=${encodeURIComponent(modelType)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setRawTasks(data.tasks || []);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar eventos do calendário:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [modelId, modelType]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  useEffect(() => {
+    const handleTaskEvent = () => {
+      fetchTasks();
+    };
+
+    window.addEventListener('focusmod_task_created', handleTaskEvent);
+    window.addEventListener('focusmod_task_updated', handleTaskEvent);
+    return () => {
+      window.removeEventListener('focusmod_task_created', handleTaskEvent);
+      window.removeEventListener('focusmod_task_updated', handleTaskEvent);
+    };
+  }, [fetchTasks]);
 
   const handlePrevMonth = () => {
     setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
@@ -44,296 +81,288 @@ export default function Calendar() {
     setSelectedDate(now.getDate());
   };
 
-  const handleAddEvent = (e) => {
-    e.preventDefault();
-    if (!newEventTitle.trim()) return;
-    const newEv = {
-      id: `ev-${Date.now()}`,
-      day: selectedDate,
-      month: currentMonth,
-      year: currentYear,
-      title: newEventTitle.trim(),
-      time: newEventTime,
-      tag: newEventTag,
-      isCritical: newEventIsCritical,
-    };
-    setEvents([...events, newEv]);
-    setNewEventTitle('');
-    setShowAddModal(false);
+  const handleDeleteEvent = async (id) => {
+    try {
+      setRawTasks((prev) => prev.filter((ev) => ev.id !== id));
+      await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      // Notify all other models so task is deleted from everywhere
+      window.dispatchEvent(new CustomEvent('focusmod_task_updated', { detail: { id, deleted: true } }));
+    } catch (err) {
+      console.error('Erro ao excluir evento:', err);
+      fetchTasks();
+    }
   };
 
-  const handleDeleteEvent = (id) => {
-    setEvents(events.filter(e => e.id !== id));
+  // Helper to determine if a task matches a specific day of the current month
+  const isTaskOnDate = (task, year, month, day) => {
+    if (!task.date) return false;
+    const taskParts = task.date.split('-');
+    if (taskParts.length !== 3) return false;
+    const tYear = parseInt(taskParts[0], 10);
+    const tMonth = parseInt(taskParts[1], 10) - 1;
+    const tDay = parseInt(taskParts[2], 10);
+
+    const targetDate = new Date(year, month, day);
+    const taskDate = new Date(tYear, tMonth, tDay);
+
+    if (targetDate < taskDate) return false;
+
+    const rec = task.recurrence || 'none';
+    if (rec === 'none') {
+      return tYear === year && tMonth === month && tDay === day;
+    }
+    if (rec === 'daily') {
+      return true;
+    }
+    if (rec === 'weekly') {
+      return targetDate.getDay() === taskDate.getDay();
+    }
+    if (rec === 'monthly') {
+      return tDay === day;
+    }
+    if (rec === 'yearly') {
+      return tMonth === month && tDay === day;
+    }
+    return false;
   };
 
-  const selectedDayEvents = events.filter(
-    (ev) => ev.day === selectedDate && ev.month === currentMonth && ev.year === currentYear
+  // Events on the currently selected day
+  const selectedDayTasks = rawTasks.filter((task) =>
+    isTaskOnDate(task, currentYear, currentMonth, selectedDate)
   );
 
+  const getRecurrenceLabel = (rec) => {
+    switch (rec) {
+      case 'daily':
+        return 'Diária';
+      case 'weekly':
+        return 'Semanal';
+      case 'monthly':
+        return 'Mensal';
+      case 'yearly':
+        return 'Anual';
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="w-full h-full flex-1 flex flex-col justify-between bg-[#1E1414] p-4 sm:p-6 lg:p-8 min-h-0 overflow-y-auto gap-3.5">
-      <div className="flex items-center justify-between pb-1 gap-2">
-        <div className="flex items-center bg-[#251818] border border-[#3D2B2B] rounded-xl p-0.5 shadow-sm">
-          <button
-            type="button"
-            onClick={handlePrevMonth}
-            className="p-1.5 rounded-lg hover:bg-[#3D2B2B] text-[#D1BFA5] hover:text-[#F5E6DA] cursor-pointer transition-colors"
-            title="Mês Anterior"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-xs sm:text-sm font-bold text-[#F5E6DA] px-3">
-            {months[currentMonth]} {currentYear}
-          </span>
-          <button
-            type="button"
-            onClick={handleNextMonth}
-            className="p-1.5 rounded-lg hover:bg-[#3D2B2B] text-[#D1BFA5] hover:text-[#F5E6DA] cursor-pointer transition-colors"
-            title="Próximo Mês"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+    <div className="w-full h-full flex-1 flex flex-col justify-between bg-[#1E1414] p-4 sm:p-6 lg:p-8 min-h-0 overflow-hidden gap-4">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#251818] border border-[#3D2B2B] rounded-2xl px-5 py-3 shadow-sm shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#800020] flex items-center justify-center text-[#F5E6DA] font-bold text-sm shadow">
+            <CalendarDays className="w-5 h-5 text-[#F5E6DA]" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-[#F5E6DA]">
+              {months[currentMonth]} {currentYear}
+            </h2>
+            <p className="text-[11px] text-[#A67C52]">
+              Visão de prazos e eventos com suporte a recorrência e horários de término
+            </p>
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleToday}
-          className="px-3.5 py-1.5 rounded-xl bg-[#251818] hover:bg-[#3D2B2B] border border-[#3D2B2B] text-xs font-semibold text-[#D1BFA5] hover:text-[#F5E6DA] transition-colors cursor-pointer shadow-sm"
-        >
-          Hoje
-        </button>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={handleToday}
+            className="px-3 py-1.5 rounded-xl bg-[#1E1414] hover:bg-[#2D1F1F] text-[#D1BFA5] hover:text-[#F5E6DA] text-xs font-semibold border border-[#3D2B2B] transition-colors cursor-pointer"
+          >
+            Hoje
+          </button>
+          <div className="flex items-center gap-1 bg-[#1E1414] p-1 rounded-xl border border-[#3D2B2B]">
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              className="p-1 rounded-lg hover:bg-[#2D1F1F] text-[#D1BFA5] hover:text-[#F5E6DA] transition-colors cursor-pointer"
+              title="Mês anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              className="p-1 rounded-lg hover:bg-[#2D1F1F] text-[#D1BFA5] hover:text-[#F5E6DA] transition-colors cursor-pointer"
+              title="Próximo mês"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
-        <div className="lg:col-span-7 bg-[#251818] border border-[#3D2B2B] rounded-2xl p-3 sm:p-4 flex flex-col justify-between shadow-sm">
-          <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1.5">
-            {weekDaysShort.map((d, i) => (
-              <div key={i} className="text-[#A67C52] font-bold py-1 uppercase tracking-wider text-[11px]">
-                {d}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-1.5 flex-1">
-            {[...Array(firstDayIndex)].map((_, i) => (
-              <div key={`empty-${i}`} className="min-h-[44px] sm:min-h-[50px] rounded-lg bg-transparent opacity-10" />
-            ))}
-
-            {[...Array(daysInCurrentMonth)].map((_, i) => {
-              const day = i + 1;
-              const isSelected = day === selectedDate;
-              const isToday =
-                day === new Date().getDate() &&
-                currentMonth === new Date().getMonth() &&
-                currentYear === new Date().getFullYear();
-              
-              const dayEvents = events.filter(
-                (ev) => ev.day === day && ev.month === currentMonth && ev.year === currentYear
-              );
-              const hasCritical = dayEvents.some((ev) => ev.isCritical);
-
-              return (
-                <button
+      {/* Main Grid: Calendar Grid (Left) + Selected Day Event List (Right) */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0 overflow-hidden">
+        {/* Calendar Grid */}
+        <div className="lg:col-span-8 bg-[#251818] border border-[#3D2B2B] rounded-2xl p-4 sm:p-5 flex flex-col justify-between overflow-y-auto shadow-sm">
+          <div>
+            {/* Week days header */}
+            <div className="grid grid-cols-7 mb-2 border-b border-[#3D2B2B] pb-2">
+              {weekDaysShort.map((day, idx) => (
+                <div
                   key={day}
-                  type="button"
-                  onClick={() => setSelectedDate(day)}
-                  className={`min-h-[44px] sm:min-h-[50px] rounded-xl p-1.5 flex flex-col justify-between items-center transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#800020] text-[#F5E6DA] shadow font-bold ring-2 ring-[#A67C52]'
-                      : isToday
-                      ? 'bg-[#1E1414] text-[#F5E6DA] border border-[#A67C52]'
-                      : 'text-[#D1BFA5] hover:bg-[#1E1414]'
+                  className={`text-center text-xs font-bold uppercase tracking-wider ${
+                    idx === 0 || idx === 6 ? 'text-[#800020]' : 'text-[#A67C52]'
                   }`}
                 >
-                  <span className={`text-xs leading-none font-medium ${isToday && !isSelected ? 'text-[#A67C52]' : ''}`}>
-                    {day}
-                  </span>
+                  {day}
+                </div>
+              ))}
+            </div>
 
-                  {dayEvents.length > 0 && (
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          hasCritical ? 'bg-amber-400' : 'bg-[#A67C52]'
-                        }`}
-                      ></span>
-                      {dayEvents.length > 1 && (
-                        <span className="text-[10px] text-[#F5E6DA]/70 font-mono">
-                          +{dayEvents.length - 1}
+            {/* Days grid */}
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+              {/* Empty padding cells for first week */}
+              {Array.from({ length: firstDayIndex }).map((_, idx) => (
+                <div key={`empty-${idx}`} className="h-10 sm:h-12 rounded-xl bg-transparent" />
+              ))}
+
+              {/* Day cells */}
+              {Array.from({ length: daysInCurrentMonth }).map((_, idx) => {
+                const dayNumber = idx + 1;
+                const isSelected = selectedDate === dayNumber;
+                const isToday =
+                  new Date().getDate() === dayNumber &&
+                  new Date().getMonth() === currentMonth &&
+                  new Date().getFullYear() === currentYear;
+
+                const dayTasks = rawTasks.filter((t) =>
+                  isTaskOnDate(t, currentYear, currentMonth, dayNumber)
+                );
+
+                return (
+                  <button
+                    key={dayNumber}
+                    type="button"
+                    onClick={() => setSelectedDate(dayNumber)}
+                    className={`h-11 sm:h-13 rounded-xl p-1.5 flex flex-col justify-between items-start transition-all cursor-pointer relative border ${
+                      isSelected
+                        ? 'bg-[#800020] border-[#A67C52] text-[#F5E6DA] shadow-md ring-2 ring-[#800020]/40'
+                        : isToday
+                        ? 'bg-[#1E1414] border-[#800020] text-[#F5E6DA]'
+                        : 'bg-[#1E1414] border-[#3D2B2B] hover:bg-[#2D1F1F] text-[#D1BFA5]'
+                    }`}
+                  >
+                    <span
+                      className={`text-xs font-bold ${
+                        isSelected
+                          ? 'text-[#F5E6DA]'
+                          : isToday
+                          ? 'text-[#A67C52]'
+                          : 'text-[#D1BFA5]'
+                      }`}
+                    >
+                      {dayNumber}
+                    </span>
+
+                    {/* Task Indicators */}
+                    {dayTasks.length > 0 && (
+                      <div className="w-full flex items-center gap-1 overflow-hidden">
+                        <span className="w-2 h-2 rounded-full bg-[#A67C52] shrink-0" />
+                        <span className="text-[10px] font-mono truncate hidden sm:inline text-left text-[#F5E6DA]">
+                          {dayTasks.length === 1 ? dayTasks[0].name : `${dayTasks.length} tarefas`}
                         </span>
-                      )}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        <div className="lg:col-span-5 bg-[#251818] border border-[#3D2B2B] rounded-2xl p-3 sm:p-4 flex flex-col justify-between shadow-sm">
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex items-center justify-between border-b border-[#3D2B2B] pb-2 mb-2">
-              <div>
-                <span className="font-bold text-xs sm:text-sm text-[#F5E6DA]">
-                  Dia {selectedDate} de {months[currentMonth]}
-                </span>
-                <p className="text-[10px] text-[#A67C52]">Lembretes marcados</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(true)}
-                className="px-2.5 py-1 rounded-lg bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] text-xs font-semibold flex items-center gap-1 cursor-pointer shadow transition-all"
-              >
-                <Plus className="w-3 h-3" />
-                <span>+ Novo</span>
-              </button>
+        {/* Selected Day Event Details (Right side) */}
+        <div className="lg:col-span-4 bg-[#251818] border border-[#3D2B2B] rounded-2xl p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-sm">
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+            <div className="border-b border-[#3D2B2B] pb-3 mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#A67C52]">
+                Prazos do Dia
+              </span>
+              <h3 className="text-base font-bold text-[#F5E6DA]">
+                {selectedDate} de {months[currentMonth]}
+              </h3>
             </div>
 
-            <div className="space-y-1.5 flex-1 overflow-y-auto pr-0.5">
-              {selectedDayEvents.length === 0 ? (
-                <div className="py-12 text-center text-xs text-[#6D5A5A] space-y-0.5">
-                  <p className="font-medium text-[#D1BFA5]">Nenhum lembrete para hoje.</p>
-                  <p className="text-[10px] text-[#A67C52]">Dia calmo e livre de cobranças!</p>
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
+              {isLoading && rawTasks.length === 0 ? (
+                <div className="h-full flex items-center justify-center py-10 text-[#A67C52]">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                </div>
+              ) : selectedDayTasks.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center py-10 text-center text-[#6D5A5A] space-y-1">
+                  <p className="text-xs text-[#D1BFA5]">Nenhum prazo agendado para este dia.</p>
+                  <p className="text-[11px] text-[#A67C52]">
+                    Use o botão (+) no canto inferior direito para adicionar uma tarefa com data.
+                  </p>
                 </div>
               ) : (
-                selectedDayEvents.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 shadow-sm ${
-                      ev.isCritical
-                        ? 'bg-[#1E1414] border-[#800020]'
-                        : 'bg-[#1E1414] border-[#3D2B2B]'
-                    }`}
-                  >
-                    <div className="truncate flex-1">
-                      <p className="font-semibold text-xs sm:text-sm text-[#F5E6DA] truncate">
-                        {ev.title}
-                      </p>
-                      <p className="text-[10px] text-[#A67C52] flex items-center gap-1 mt-0.5">
-                        <Clock className="w-2.5 h-2.5" />
-                        <span>{ev.time}</span>
-                        <span>•</span>
-                        <span className="px-1.5 py-0.2 rounded bg-[#251818] text-[#D1BFA5] text-[9px] font-semibold">{ev.tag}</span>
-                      </p>
-                    </div>
+                selectedDayTasks.map((t) => {
+                  const timeDisplay =
+                    t.startTime && t.endTime
+                      ? `${t.startTime} - ${t.endTime}`
+                      : t.startTime
+                      ? t.startTime
+                      : 'Dia todo';
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteEvent(ev.id)}
-                      className="text-[#6D5A5A] hover:text-red-400 p-1 rounded hover:bg-[#251818] transition-colors cursor-pointer"
-                      title="Excluir"
+                  const recLabel = getRecurrenceLabel(t.recurrence);
+                  const desc = t.description || t.notes;
+
+                  return (
+                    <div
+                      key={t.id}
+                      className="p-3.5 rounded-xl bg-[#1E1414] border border-[#3D2B2B] hover:border-[#800020]/50 flex items-start justify-between gap-2.5 shadow-sm transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))
+                      <div className="truncate flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-semibold text-xs sm:text-sm text-[#F5E6DA] truncate">
+                            {t.name}
+                          </p>
+                          {recLabel && (
+                            <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-[#251818] text-[#A67C52] border border-[#3D2B2B] flex items-center gap-0.5">
+                              <Repeat className="w-2.5 h-2.5" /> {recLabel}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Start and End Time */}
+                        <p className="text-[11px] text-[#A67C52] flex items-center gap-1 font-mono mt-1">
+                          <Clock className="w-3 h-3" />
+                          <span>{timeDisplay}</span>
+                        </p>
+
+                        {/* Description */}
+                        {desc && (
+                          <p className="text-[11px] text-[#D1BFA5] mt-1.5 line-clamp-2 italic bg-[#251818] p-1.5 rounded-lg border border-[#3D2B2B]/60">
+                            {desc}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEvent(t.id)}
+                        className="text-[#6D5A5A] hover:text-red-400 p-1.5 rounded-lg hover:bg-[#251818] transition-colors cursor-pointer shrink-0 mt-0.5"
+                        title="Excluir tarefa de todos os modelos"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
 
-          <div className="pt-2 border-t border-[#3D2B2B] text-xs text-[#A67C52] font-medium flex items-center justify-between">
-            <span>Total de lembretes:</span>
-            <span className="font-mono text-xs text-[#F5E6DA] bg-[#1E1414] px-2 py-0.5 rounded border border-[#3D2B2B]">{events.length}</span>
+          <div className="pt-3 border-t border-[#3D2B2B] text-xs text-[#A67C52] font-medium flex items-center justify-between shrink-0">
+            <span>Tarefas neste dia:</span>
+            <span className="font-mono text-xs text-[#F5E6DA] bg-[#1E1414] px-2.5 py-0.5 rounded-lg border border-[#3D2B2B]">
+              {selectedDayTasks.length}
+            </span>
           </div>
         </div>
       </div>
-
-      {/* Retirar adicionar lembrete depois */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-[#251818] border border-[#3D2B2B] rounded-2xl p-5 shadow-2xl space-y-3">
-            <div className="flex items-center justify-between border-b border-[#3D2B2B] pb-2">
-              <h3 className="font-bold text-sm text-[#F5E6DA]">
-                Novo Lembrete (Dia {selectedDate})
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="text-[#D1BFA5] hover:text-[#F5E6DA] text-xs"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleAddEvent} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-[#D1BFA5] mb-1">
-                  Título
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newEventTitle}
-                  onChange={(e) => setNewEventTitle(e.target.value)}
-                  placeholder="Ex: Entrega, consulta..."
-                  className="w-full bg-[#1E1414] border border-[#3D2B2B] focus:border-[#800020] rounded-lg px-2.5 py-1.5 text-xs text-[#F5E6DA] placeholder-[#6D5A5A] outline-none"
-                  autoFocus
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-semibold text-[#D1BFA5] mb-1">
-                    Horário
-                  </label>
-                  <input
-                    type="time"
-                    value={newEventTime}
-                    onChange={(e) => setNewEventTime(e.target.value)}
-                    className="w-full bg-[#1E1414] border border-[#3D2B2B] rounded-lg px-2 py-1 text-xs text-[#F5E6DA] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-[#D1BFA5] mb-1">
-                    Categoria
-                  </label>
-                  <select
-                    value={newEventTag}
-                    onChange={(e) => setNewEventTag(e.target.value)}
-                    className="w-full bg-[#1E1414] border border-[#3D2B2B] rounded-lg px-2 py-1 text-xs text-[#F5E6DA] outline-none"
-                  >
-                    <option value="Prazo">Prazo</option>
-                    <option value="Saúde">Saúde</option>
-                    <option value="Compromisso">Compromisso</option>
-                    <option value="Rotina">Rotina</option>
-                    <option value="Finanças">Finanças</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  id="criticalCheck"
-                  checked={newEventIsCritical}
-                  onChange={(e) => setNewEventIsCritical(e.target.checked)}
-                  className="rounded accent-[#800020] w-3.5 h-3.5 cursor-pointer"
-                />
-                <label htmlFor="criticalCheck" className="text-[11px] text-[#D1BFA5] cursor-pointer flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3 text-amber-400" />
-                  <span>Prazo crítico (destaque dourado)</span>
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#3D2B2B]">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-3 py-1.5 rounded-lg bg-[#1E1414] text-[#D1BFA5] text-xs font-semibold"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] text-xs font-bold transition-all shadow-md"
-                >
-                  Salvar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
