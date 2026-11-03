@@ -1,0 +1,8 @@
+{
+  "name": "FocusMod - ADHD Organizer",
+  "description": "Sistema de apoio à produtividade e organização para pessoas com Transtorno do Déficit de Atenção e Hiperatividade (TDAH). Ferramentas modulares incluindo Agenda Visual, Calendário de Tarefas, Pomodoro e Brain Dump.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

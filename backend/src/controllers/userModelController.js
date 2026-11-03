@@ -1,4 +1,6 @@
-// Controlador para salvar e recuperar modelos (múltiplas instâncias nomeadas) pelo usuário
+import { UserModel } from '../models/userModelModel.js';
+import { Model } from '../models/modelModel.js';
+import { isDatabaseConnected } from '../database/sequelize.js';
 
 export const VALID_TYPES = ['routine', 'calendario', 'pomodoro', 'brain-dump'];
 
@@ -27,7 +29,7 @@ export function generateUniqueModelName(baseName, existingList, currentId = null
   return `${baseName} (${counter})`;
 }
 
-// Armazenamento em memória para as instâncias de modelos do usuário
+// Armazenamento em memória (fallback caso PostgreSQL não esteja configurado)
 let userModelPreferences = {
   default: [
     { id: 'mod-routine-1', type: 'routine', name: 'Agenda Visual' },
@@ -37,10 +39,67 @@ let userModelPreferences = {
   ],
 };
 
+const DEFAULT_MODELS_SEED = [
+  { type: 'routine', name: 'Agenda Visual', order_index: 0 },
+  { type: 'calendario', name: 'Calendário', order_index: 1 },
+  { type: 'pomodoro', name: 'Pomodoro', order_index: 2 },
+  { type: 'brain-dump', name: 'Brain Dump', order_index: 3 },
+];
+
 export const getUserModels = async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'] || 'default';
-    const models = userModelPreferences[userId] || userModelPreferences['default'];
+    const accountId = req.user?.id || Number(req.headers['x-user-id']) || 1;
+
+    // Se o banco PostgreSQL estiver configurado, utiliza os métodos do Sequelize
+    if (await isDatabaseConnected()) {
+      let dbUserModels = await UserModel.findAll({
+        where: { id_account: accountId },
+        include: [{ model: Model, as: 'baseModel', required: false }],
+        order: [['order_index', 'ASC'], ['id_user_model', 'ASC']],
+      });
+
+      // Se o usuário ainda não tiver modelos persistidos, inicializa os modelos padrão
+      if (dbUserModels.length === 0) {
+        const baseModels = await Model.findAll();
+        const baseMap = {};
+        baseModels.forEach((bm) => {
+          baseMap[bm.type] = bm.id_model;
+        });
+
+        const seedData = DEFAULT_MODELS_SEED.map((seed) => ({
+          id_account: accountId,
+          id_model: baseMap[seed.type] || null,
+          type: seed.type,
+          name: seed.name,
+          order_index: seed.order_index,
+        }));
+
+        await UserModel.bulkCreate(seedData);
+
+        dbUserModels = await UserModel.findAll({
+          where: { id_account: accountId },
+          include: [{ model: Model, as: 'baseModel', required: false }],
+          order: [['order_index', 'ASC'], ['id_user_model', 'ASC']],
+        });
+      }
+
+      const formatted = dbUserModels.map((m) => ({
+        id: `mod-${m.type}-${m.id_user_model}`,
+        dbId: m.id_user_model,
+        type: m.type,
+        name: m.name,
+        order_index: m.order_index,
+      }));
+
+      return res.status(200).json({
+        models: formatted,
+        selectedModelIds: formatted.map((m) => m.id),
+      });
+    }
+
+    // Fallback em memória quando PostgreSQL não está configurado
+    const key = String(accountId);
+    const models = userModelPreferences[key] || userModelPreferences['default'];
 
     return res.status(200).json({
       models,
@@ -53,7 +112,7 @@ export const getUserModels = async (req, res) => {
 
 export const updateUserModels = async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'] || 'default';
+    const accountId = req.user?.id || Number(req.headers['x-user-id']) || 1;
     const { models, selectedModelIds } = req.body;
 
     let incomingList = [];
@@ -61,7 +120,6 @@ export const updateUserModels = async (req, res) => {
     if (Array.isArray(models) && models.length > 0) {
       incomingList = models;
     } else if (Array.isArray(selectedModelIds) && selectedModelIds.length > 0) {
-      // Compatibilidade retroativa caso venha array simples de IDs/tipos
       incomingList = selectedModelIds.map((item, index) => {
         if (typeof item === 'object' && item.type) return item;
         const type = VALID_TYPES.includes(item) ? item : 'routine';
@@ -85,7 +143,6 @@ export const updateUserModels = async (req, res) => {
       const rawName = (item.name && item.name.trim()) ? item.name.trim() : defaultName;
       const id = item.id || `mod-${type}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
-      // Aplica numeração estilo Windows caso o nome já exista na lista atual
       const uniqueName = generateUniqueModelName(rawName, normalizedList);
 
       normalizedList.push({
@@ -99,7 +156,45 @@ export const updateUserModels = async (req, res) => {
       return res.status(400).json({ message: 'Nenhum modelo válido fornecido.' });
     }
 
-    userModelPreferences[userId] = normalizedList;
+    // Se o banco PostgreSQL estiver conectado, persiste usando Sequelize
+    if (await isDatabaseConnected()) {
+      const baseModels = await Model.findAll();
+      const baseMap = {};
+      baseModels.forEach((bm) => {
+        baseMap[bm.type] = bm.id_model;
+      });
+
+      // Substitui os modelos cadastrados pelo usuário para essa conta
+      await UserModel.destroy({ where: { id_account: accountId } });
+
+      const recordsToInsert = normalizedList.map((m, idx) => ({
+        id_account: accountId,
+        id_model: baseMap[m.type] || null,
+        type: m.type,
+        name: m.name,
+        order_index: idx,
+      }));
+
+      const created = await UserModel.bulkCreate(recordsToInsert);
+
+      const formatted = created.map((m) => ({
+        id: `mod-${m.type}-${m.id_user_model}`,
+        dbId: m.id_user_model,
+        type: m.type,
+        name: m.name,
+        order_index: m.order_index,
+      }));
+
+      return res.status(200).json({
+        message: 'Modelos salvos no banco PostgreSQL com sucesso!',
+        models: formatted,
+        selectedModelIds: formatted.map((m) => m.id),
+      });
+    }
+
+    // Fallback em memória
+    const key = String(accountId);
+    userModelPreferences[key] = normalizedList;
     userModelPreferences['default'] = normalizedList;
 
     return res.status(200).json({

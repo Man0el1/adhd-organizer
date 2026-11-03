@@ -6,7 +6,7 @@ export function blockLoggedIn(req, res, next) {
 
   if (token){
     try {
-      jwt.verify(token, process.env.JWT_SECRET);
+      jwt.verify(token, process.env.JWT_SECRET || 'focusmod-secret-key-2026');
       return res.status(403).json({ message: "Você já está logado." });
     } catch (err) {
       // Token inválido ou expirado, permitir acesso à rota

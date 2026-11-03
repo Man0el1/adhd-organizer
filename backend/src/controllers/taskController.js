@@ -1,68 +1,287 @@
-// Armazenamento em memória para tarefas — sem conceito de Space
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { Task } from '../models/taskModel.js';
+import { Model } from '../models/modelModel.js';
+import { TaskCalendar } from '../models/TaskTypes/taskCalendarModel.js';
+import { TaskCompletion } from '../models/taskCompletionModel.js';
+import { isDatabaseConnected } from '../database/sequelize.js';
+import { getUserTimezone, getTodayDateStr, matchesTargetDate } from '../utils/dateUtils.js';
+
+export { matchesTargetDate };
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_DIR = path.resolve(__dirname, '../../data');
+const STORE_FILE = path.join(DATA_DIR, 'tasks_store.json');
+
+// Garante que o diretório de dados para persistência em desenvolvimento exista
+if (!fs.existsSync(DATA_DIR)) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (err) {
+    console.warn('Aviso ao criar diretório de dados:', err.message);
+  }
+}
+
+// Armazenamento em memória com persistência local em arquivo JSON (modo fallback)
 let inMemoryTasks = [];
+let inMemoryCompletions = [];
 
-// Helper para verificar se uma tarefa (incluindo recorrentes) se aplica a uma data específica
-export const matchesTargetDate = (task, targetDateStr) => {
-  if (!task.date) return true;
-  if (task.date === targetDateStr) return true;
-
-  const recurrence = task.recurrence || 'none';
-  if (recurrence === 'none') return false;
-
-  const taskDate = new Date(task.date + 'T00:00:00');
-  const targetDate = new Date(targetDateStr + 'T00:00:00');
-
-  // Tarefas futuras não se aplicam a datas anteriores à sua criação
-  if (taskDate > targetDate) return false;
-
-  if (recurrence === 'daily') {
-    return true;
+const loadLocalStore = () => {
+  try {
+    if (fs.existsSync(STORE_FILE)) {
+      const content = fs.readFileSync(STORE_FILE, 'utf-8');
+      const data = JSON.parse(content);
+      if (Array.isArray(data.tasks)) inMemoryTasks = data.tasks;
+      if (Array.isArray(data.completions)) inMemoryCompletions = data.completions;
+      return;
+    }
+  } catch (err) {
+    console.warn('Aviso ao carregar tasks_store.json:', err.message);
   }
 
-  if (recurrence === 'weekly') {
-    return taskDate.getDay() === targetDate.getDay();
-  }
+  // Dados iniciais padrão de exemplo se o arquivo ainda não existir
+  const todayStr = getTodayDateStr('America/Sao_Paulo');
+  inMemoryTasks = [
+    {
+      id: 'task-init-1',
+      id_account: 1,
+      name: 'Revisar metas diárias',
+      description: 'Planejar as prioridades do dia',
+      modelId: 'routine',
+      modelIds: ['routine'],
+      date: todayStr,
+      startTime: '09:00',
+      endTime: '09:30',
+      recurrence: 'daily',
+      done: false,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'task-init-2',
+      id_account: 1,
+      name: 'Sessão de foco profundo',
+      description: 'Trabalhar no módulo principal do FocusMod',
+      modelId: 'routine',
+      modelIds: ['routine'],
+      date: todayStr,
+      startTime: '10:00',
+      endTime: '11:00',
+      recurrence: 'none',
+      done: false,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'task-init-3',
+      id_account: 1,
+      name: 'Ideias de novos temas suaves',
+      description: 'Testar variações de azul safira e fundo off-white',
+      modelId: 'brain-dump',
+      modelIds: ['brain-dump'],
+      date: null,
+      startTime: null,
+      endTime: null,
+      recurrence: 'none',
+      done: false,
+      createdAt: new Date().toISOString(),
+    },
+  ];
+  saveLocalStore();
+};
 
-  if (recurrence === 'monthly') {
-    return taskDate.getDate() === targetDate.getDate();
-  }
-
-  if (recurrence === 'yearly') {
-    return (
-      taskDate.getDate() === targetDate.getDate() &&
-      taskDate.getMonth() === targetDate.getMonth()
+const saveLocalStore = () => {
+  try {
+    fs.writeFileSync(
+      STORE_FILE,
+      JSON.stringify(
+        {
+          tasks: inMemoryTasks,
+          completions: inMemoryCompletions,
+        },
+        null,
+        2
+      ),
+      'utf-8'
     );
+  } catch (err) {
+    console.warn('Aviso ao salvar tasks_store.json:', err.message);
+  }
+};
+
+// Carrega store inicial
+loadLocalStore();
+
+// Normaliza o tipo/id do modelo
+const extractModelType = (modelId) => {
+  if (!modelId) return null;
+  const str = String(modelId).toLowerCase();
+  if (str.includes('routine') || str.includes('agenda')) return 'routine';
+  if (str.includes('calendario') || str.includes('calendar')) return 'calendario';
+  if (str.includes('brain')) return 'brain-dump';
+  if (str.includes('pomodoro')) return 'pomodoro';
+  return str;
+};
+
+// Determina as datas concluídas e o status de conclusão de uma tarefa para uma data alvo
+const resolveTaskDoneStatus = (task, targetDateStr, completions = []) => {
+  const taskId = String(task.id_task || task.id);
+  const taskCompletions = completions.filter(
+    (c) => String(c.id_task) === taskId && Boolean(c.completed)
+  );
+
+  const completedDates = taskCompletions.map((c) => c.date);
+  const isRecurrent = task.recurrence && task.recurrence !== 'none';
+
+  let doneForTarget = false;
+  if (isRecurrent) {
+    if (targetDateStr) {
+      doneForTarget = completedDates.includes(targetDateStr);
+    } else {
+      doneForTarget = false;
+    }
+  } else {
+    if (targetDateStr && task.date === targetDateStr) {
+      const match = taskCompletions.find((c) => c.date === targetDateStr);
+      doneForTarget = match ? true : Boolean(task.done);
+    } else {
+      doneForTarget = Boolean(task.done);
+    }
   }
 
-  return false;
+  return {
+    done: doneForTarget,
+    completedDates,
+  };
+};
+
+// Formata uma instância Sequelize de Task
+const formatSequelizeTask = (t, customModelId = null, targetDateStr = null, dbCompletions = null) => {
+  const resolvedModelId = customModelId || (t.model?.type ? t.model.type : String(t.id_model || 'routine'));
+  const comps = dbCompletions !== null ? dbCompletions : (t.completions || []);
+  const { done, completedDates } = resolveTaskDoneStatus(t, targetDateStr, comps);
+
+  return {
+    id: String(t.id_task),
+    dbId: t.id_task,
+    id_account: t.id_account,
+    name: t.name,
+    description: t.description || '',
+    notes: t.description || '',
+    modelId: resolvedModelId,
+    modelIds: [resolvedModelId],
+    date: t.date || null,
+    startTime: t.startTime || t.start_time || null,
+    endTime: t.endTime || t.end_time || null,
+    recurrence: t.recurrence || 'none',
+    done,
+    occurrenceDate: targetDateStr || t.date || null,
+    completedDates,
+    createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
+  };
+};
+
+// Formata uma tarefa do fallback em memória
+const formatInMemoryTask = (t, customModelId = null, targetDateStr = null) => {
+  const resolvedModelId = customModelId || t.modelId || (Array.isArray(t.modelIds) && t.modelIds[0]) || 'routine';
+  const { done, completedDates } = resolveTaskDoneStatus(t, targetDateStr, inMemoryCompletions);
+
+  return {
+    ...t,
+    id: String(t.id),
+    modelId: resolvedModelId,
+    modelIds: [resolvedModelId],
+    done,
+    occurrenceDate: targetDateStr || t.date || null,
+    completedDates,
+  };
 };
 
 export const getTasks = async (req, res) => {
   try {
+    const userId = req.user?.id || 1;
     const { modelId, modelType, targetDate, today } = req.query;
-    const todayStr = today || new Date().toISOString().split('T')[0];
+    const userTz = getUserTimezone(req);
+    const todayStr = today || getTodayDateStr(userTz);
     const viewDateStr = targetDate || todayStr;
 
-    let filtered = [...inMemoryTasks];
+    // Se o banco PostgreSQL estiver configurado e conectado
+    if (await isDatabaseConnected()) {
+      const typeKey = extractModelType(modelType || modelId);
+      let whereClause = {
+        id_account: userId,
+      };
 
-    // Filtra estritamente pelo ID do modelo selecionado
+      if (typeKey) {
+        const matchingModel = await Model.findOne({ where: { type: typeKey } });
+        if (matchingModel) {
+          whereClause.id_model = matchingModel.id_model;
+        }
+      } else if (modelId && !isNaN(Number(modelId))) {
+        whereClause.id_model = Number(modelId);
+      }
+
+      const tasksFromDb = await Task.findAll({
+        where: whereClause,
+        include: [
+          { model: Model, as: 'model', required: false },
+          { model: TaskCompletion, as: 'completions', required: false },
+        ],
+        order: [['createdAt', 'DESC']],
+      });
+
+      let formatted = tasksFromDb.map((t) =>
+        formatSequelizeTask(t, modelId, targetDate ? viewDateStr : null, t.completions)
+      );
+
+      const isRoutine =
+        modelId === 'routine' ||
+        modelType === 'routine' ||
+        (typeof modelId === 'string' && modelId.includes('routine'));
+
+      if (isRoutine) {
+        const isViewingToday = viewDateStr === todayStr;
+        formatted = formatted
+          .map((task) => {
+            const isFromTargetDate = matchesTargetDate(task, viewDateStr);
+            // Tarefa vencida se aplica apenas a tarefas NÃO recorrentes com data anterior a hoje
+            const isRecurrent = task.recurrence && task.recurrence !== 'none';
+            const isOverdue = Boolean(
+              !isRecurrent && isViewingToday && task.date && task.date < todayStr && !task.done
+            );
+
+            return {
+              ...task,
+              isOverdue,
+              isFromTargetDate,
+            };
+          })
+          .filter((task) => task.isFromTargetDate || task.isOverdue);
+      }
+
+      return res.status(200).json({ tasks: formatted });
+    }
+
+    // Fallback em memória
+    let filtered = inMemoryTasks.filter((t) => (t.id_account || 1) === userId);
+
     if (modelId) {
       filtered = filtered.filter((t) => {
-        if (!t.modelIds || !Array.isArray(t.modelIds)) return false;
-        // Correspondência exata com a instância selecionada
-        if (t.modelIds.includes(modelId)) return true;
+        if (t.modelId === modelId) return true;
+        if (Array.isArray(t.modelIds) && t.modelIds.includes(modelId)) return true;
 
-        // Suporte a compatibilidade apenas caso a tarefa tenha sido criada com o tipo genérico
-        if (modelId === 'routine' && t.modelIds.includes('routine')) return true;
-        if (modelId === 'calendario' && t.modelIds.includes('calendario')) return true;
-        if (modelId === 'brain-dump' && t.modelIds.includes('brain-dump')) return true;
+        if (modelId === 'routine' && (t.modelId === 'routine' || t.modelId?.includes('routine') || t.modelIds?.includes('routine'))) return true;
+        if (modelId === 'calendario' && (t.modelId === 'calendario' || t.modelId?.includes('calendario') || t.modelIds?.includes('calendario'))) return true;
+        if (modelId === 'brain-dump' && (t.modelId === 'brain-dump' || t.modelId?.includes('brain') || t.modelIds?.includes('brain-dump'))) return true;
 
         return false;
       });
     }
 
-    // Regra específica para Agenda Visual:
-    // Mostra as tarefas do dia selecionado + se for hoje, traz tarefas pendentes de dias anteriores
+    let formatted = filtered.map((t) =>
+      formatInMemoryTask(t, modelId, targetDate ? viewDateStr : null)
+    );
+
     const isRoutine =
       modelId === 'routine' ||
       modelType === 'routine' ||
@@ -71,11 +290,13 @@ export const getTasks = async (req, res) => {
     if (isRoutine) {
       const isViewingToday = viewDateStr === todayStr;
 
-      filtered = filtered
+      formatted = formatted
         .map((task) => {
           const isFromTargetDate = matchesTargetDate(task, viewDateStr);
-          // Overdue só é exibido se o usuário estiver visualizando o dia de hoje
-          const isOverdue = Boolean(isViewingToday && task.date && task.date < todayStr && !task.done);
+          const isRecurrent = task.recurrence && task.recurrence !== 'none';
+          const isOverdue = Boolean(
+            !isRecurrent && isViewingToday && task.date && task.date < todayStr && !task.done
+          );
 
           return {
             ...task,
@@ -86,47 +307,84 @@ export const getTasks = async (req, res) => {
         .filter((task) => task.isFromTargetDate || task.isOverdue);
     }
 
-    return res.status(200).json({ tasks: filtered });
+    return res.status(200).json({ tasks: formatted });
   } catch (e) {
     return res.status(500).json({ message: `Erro ao buscar tarefas: ${e.message}` });
   }
 };
 
-// Retorna contagem de tarefas disponíveis/agendadas para hoje em cada modelo (para exibir notificação na barra lateral)
 export const getTodayCounts = async (req, res) => {
   try {
-    const todayStr = req.query.today || new Date().toISOString().split('T')[0];
+    const userId = req.user?.id || 1;
+    const userTz = getUserTimezone(req);
+    const todayStr = req.query.today || getTodayDateStr(userTz);
     const counts = {};
 
-    inMemoryTasks.forEach((task) => {
-      if (task.done) return;
+    if (await isDatabaseConnected()) {
+      const allTasks = await Task.findAll({
+        where: { id_account: userId },
+        include: [
+          { model: Model, as: 'model', required: false },
+          { model: TaskCompletion, as: 'completions', required: false },
+        ],
+      });
 
-      const isForToday = matchesTargetDate(task, todayStr);
-      const isOverdue = Boolean(task.date && task.date < todayStr);
-      const models = task.modelIds || [];
+      allTasks.forEach((t) => {
+        const isRecurrent = t.recurrence && t.recurrence !== 'none';
+        const { done } = resolveTaskDoneStatus(t, todayStr, t.completions);
 
-      models.forEach((mid) => {
-        // Routine (Agenda Visual): tarefas de hoje ou atrasadas de dias anteriores
-        if (mid === 'routine' || mid.includes('routine')) {
+        // Se concluída para hoje, não entra na contagem de pendências
+        if (done) return;
+
+        const isForToday = matchesTargetDate(t, todayStr);
+        const isOverdue = Boolean(!isRecurrent && t.date && t.date < todayStr && !t.done);
+        const targetModelId = t.model?.type || extractModelType(t.id_model);
+
+        if (!targetModelId) return;
+
+        if (targetModelId === 'routine' || targetModelId.includes('routine')) {
           if (isForToday || isOverdue) {
-            counts[mid] = (counts[mid] || 0) + 1;
+            counts[targetModelId] = (counts[targetModelId] || 0) + 1;
           }
-        }
-
-        // Calendário: eventos/prazos de hoje
-        if (mid === 'calendario' || mid.includes('calendario')) {
+        } else if (targetModelId === 'calendario' || targetModelId.includes('calendario')) {
           if (isForToday) {
-            counts[mid] = (counts[mid] || 0) + 1;
+            counts[targetModelId] = (counts[targetModelId] || 0) + 1;
           }
-        }
-
-        // Brain Dump: pensamentos/itens ativos pendentes
-        if (mid === 'brain-dump' || mid.includes('brain')) {
-          counts[mid] = (counts[mid] || 0) + 1;
+        } else if (targetModelId === 'brain-dump' || targetModelId.includes('brain')) {
+          counts[targetModelId] = (counts[targetModelId] || 0) + 1;
         }
       });
-      // Pomodoro não possui notificação conforme solicitado pelo usuário
-    });
+
+      return res.status(200).json({ today: todayStr, counts });
+    }
+
+    // Fallback em memória
+    inMemoryTasks
+      .filter((t) => (t.id_account || 1) === userId)
+      .forEach((task) => {
+        const isRecurrent = task.recurrence && task.recurrence !== 'none';
+        const { done } = resolveTaskDoneStatus(task, todayStr, inMemoryCompletions);
+
+        if (done) return;
+
+        const isForToday = matchesTargetDate(task, todayStr);
+        const isOverdue = Boolean(!isRecurrent && task.date && task.date < todayStr && !task.done);
+        const targetModelId = task.modelId || (Array.isArray(task.modelIds) && task.modelIds[0]);
+
+        if (!targetModelId) return;
+
+        if (targetModelId === 'routine' || targetModelId.includes('routine')) {
+          if (isForToday || isOverdue) {
+            counts[targetModelId] = (counts[targetModelId] || 0) + 1;
+          }
+        } else if (targetModelId === 'calendario' || targetModelId.includes('calendario')) {
+          if (isForToday) {
+            counts[targetModelId] = (counts[targetModelId] || 0) + 1;
+          }
+        } else if (targetModelId === 'brain-dump' || targetModelId.includes('brain')) {
+          counts[targetModelId] = (counts[targetModelId] || 0) + 1;
+        }
+      });
 
     return res.status(200).json({ today: todayStr, counts });
   } catch (e) {
@@ -134,7 +392,6 @@ export const getTodayCounts = async (req, res) => {
   }
 };
 
-// Adiciona minutos a um horário "HH:MM"
 export const addMinutesToTime = (timeStr, minutesToAdd = 1) => {
   if (!timeStr) return '';
   const [h, m] = timeStr.split(':').map((v) => parseInt(v, 10));
@@ -151,11 +408,13 @@ export const addMinutesToTime = (timeStr, minutesToAdd = 1) => {
 
 export const createTask = async (req, res) => {
   try {
+    const userId = req.user?.id || 1;
     const {
       name,
       description = '',
       notes = '',
-      modelIds = [],
+      modelId,
+      modelIds,
       date,
       startTime,
       endTime,
@@ -166,61 +425,114 @@ export const createTask = async (req, res) => {
       return res.status(400).json({ message: 'O nome da tarefa é obrigatório.' });
     }
 
-    if (!modelIds || modelIds.length === 0) {
-      return res.status(400).json({ message: 'Selecione pelo menos um modelo para a tarefa.' });
+    const finalModelId = modelId || (Array.isArray(modelIds) && modelIds[0]) || null;
+
+    if (!finalModelId) {
+      return res.status(400).json({ message: 'Selecione o modelo ao qual a tarefa pertence.' });
     }
 
-    // Caso o horário inicial seja depois ou igual ao horário de término,
-    // ajusta automaticamente o término para o horário inicial + 1 minuto
     let finalEndTime = endTime || null;
     if (startTime && endTime && startTime >= endTime) {
       finalEndTime = addMinutesToTime(startTime, 1);
     }
 
-    // Se o modelo de Agenda Visual (Rotina) estiver selecionado, horário de início é obrigatório
-    const requiresTime = modelIds.some(
-      (m) => m === 'routine' || m === 'agenda-visual' || m.includes('routine')
-    );
-    if (requiresTime && !startTime) {
+    const isRoutine =
+      finalModelId === 'routine' ||
+      finalModelId === 'agenda-visual' ||
+      (typeof finalModelId === 'string' && finalModelId.includes('routine'));
+
+    const isCalendar =
+      finalModelId === 'calendario' ||
+      (typeof finalModelId === 'string' && finalModelId.includes('calendario'));
+
+    if (isRoutine && !startTime) {
       return res.status(400).json({
         message: 'O horário de início é obrigatório quando a Agenda Visual está selecionada.',
       });
     }
 
-    // Se Calendário ou Agenda Visual estiverem selecionados, data é obrigatória
-    const requiresDate = modelIds.some(
-      (m) =>
-        m === 'calendario' ||
-        m === 'routine' ||
-        m === 'agenda-visual' ||
-        m.includes('calendario') ||
-        m.includes('routine')
-    );
-    if (requiresDate && !date) {
-      return res.status(400).json({ message: 'A data é obrigatória para os modelos selecionados.' });
+    if ((isCalendar || isRoutine) && !date) {
+      return res.status(400).json({ message: 'A data é obrigatória para o modelo selecionado.' });
     }
 
     const finalDescription = (description || notes || '').trim();
 
+    // Se o banco PostgreSQL estiver configurado e conectado
+    if (await isDatabaseConnected()) {
+      const typeKey = extractModelType(finalModelId);
+      let targetIdModel = null;
+
+      if (typeKey) {
+        const foundModel = await Model.findOne({ where: { type: typeKey } });
+        if (foundModel) {
+          targetIdModel = foundModel.id_model;
+        }
+      } else if (!isNaN(Number(finalModelId))) {
+        targetIdModel = Number(finalModelId);
+      }
+
+    const userTz = getUserTimezone(req);
+    const defaultDate = getTodayDateStr(userTz);
+
+    const created = await Task.create({
+        id_account: userId,
+        id_model: targetIdModel,
+        name: name.trim(),
+        description: finalDescription,
+        date: (isCalendar || isRoutine) ? (date || defaultDate) : null,
+        startTime: (isRoutine || isCalendar) ? (startTime || null) : null,
+        endTime: (isRoutine || isCalendar) ? (finalEndTime || null) : null,
+        recurrence: (isCalendar || isRoutine) ? (recurrence || 'none') : 'none',
+        done: false,
+      });
+
+      if (isCalendar && date) {
+        try {
+          await TaskCalendar.create({
+            id_task: created.id_task,
+            start_date: date,
+            end_date: date,
+            start_time: startTime || null,
+            end_time: finalEndTime || null,
+          });
+        } catch (calErr) {
+          console.warn('Nota: TaskCalendar opcional:', calErr.message);
+        }
+      }
+
+      const formatted = formatSequelizeTask(created, finalModelId, date, []);
+
+      return res.status(201).json({
+        message: 'Tarefa criada com sucesso!',
+        task: formatted,
+      });
+    }
+
+    // Fallback em memória
     const newTask = {
       id: `task-${Date.now()}`,
+      id_account: userId,
       name: name.trim(),
       description: finalDescription,
       notes: finalDescription,
-      modelIds,
-      date: date || new Date().toISOString().split('T')[0],
-      startTime: startTime || null,
-      endTime: finalEndTime || null,
-      recurrence: recurrence || 'none', // 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+      modelId: finalModelId,
+      modelIds: [finalModelId],
+      date: (isCalendar || isRoutine) ? (date || defaultDate) : null,
+      startTime: isRoutine ? (startTime || null) : (isCalendar ? (startTime || null) : null),
+      endTime: isRoutine ? (finalEndTime || null) : (isCalendar ? (finalEndTime || null) : null),
+      recurrence: (isCalendar || isRoutine) ? (recurrence || 'none') : 'none',
       done: false,
       createdAt: new Date().toISOString(),
     };
 
     inMemoryTasks.unshift(newTask);
+    saveLocalStore();
+
+    const formatted = formatInMemoryTask(newTask, finalModelId, date);
 
     return res.status(201).json({
       message: 'Tarefa criada com sucesso!',
-      task: newTask,
+      task: formatted,
     });
   } catch (e) {
     return res.status(500).json({ message: `Erro ao criar tarefa: ${e.message}` });
@@ -229,38 +541,379 @@ export const createTask = async (req, res) => {
 
 export const deleteTask = async (req, res) => {
   try {
+    const userId = req.user?.id || 1;
     const { id } = req.params;
-    inMemoryTasks = inMemoryTasks.filter((t) => t.id !== id);
-    return res.status(200).json({ message: 'Tarefa excluída de todos os modelos com sucesso.', id });
+
+    if (await isDatabaseConnected()) {
+      const numId = Number(id);
+      if (!isNaN(numId)) {
+        await TaskCompletion.destroy({ where: { id_task: numId, id_account: userId } });
+        await Task.destroy({ where: { id_task: numId, id_account: userId } });
+        return res.status(200).json({ message: 'Tarefa excluída com sucesso.', id });
+      }
+    }
+
+    inMemoryTasks = inMemoryTasks.filter((t) => !(t.id === id && (t.id_account || 1) === userId));
+    inMemoryCompletions = inMemoryCompletions.filter(
+      (c) => !(String(c.id_task) === id && (c.id_account || 1) === userId)
+    );
+    saveLocalStore();
+
+    return res.status(200).json({ message: 'Tarefa excluída com sucesso.', id });
   } catch (e) {
     return res.status(500).json({ message: `Erro ao excluir tarefa: ${e.message}` });
   }
 };
 
-export const toggleTask = async (req, res) => {
+/**
+ * Atualiza propriedades da tarefa ou seu status de conclusão (PUT/PATCH /api/tasks/:id)
+ * Trata tarefas recorrentes registrando a conclusão por data/ocorrência,
+ * sem afetar as demais ocorrências e mantendo a recorrência ativa!
+ */
+export const updateTask = async (req, res) => {
   try {
+    const userId = req.user?.id || 1;
     const { id } = req.params;
-    const task = inMemoryTasks.find((t) => t.id === id);
+    const {
+      name,
+      description,
+      notes,
+      date,
+      startTime,
+      endTime,
+      recurrence,
+      done,
+    } = req.body;
+
+    const userTz = getUserTimezone(req);
+    const todayStr = req.body?.today || req.query?.today || getTodayDateStr(userTz);
+    const occurrenceDate = date || req.query.date || todayStr;
+
+    // Modo Banco de Dados
+    if (await isDatabaseConnected()) {
+      const numId = Number(id);
+      if (isNaN(numId)) {
+        return res.status(400).json({ message: 'ID de tarefa inválido.' });
+      }
+
+      const taskRecord = await Task.findOne({
+        where: { id_task: numId, id_account: userId },
+        include: [
+          { model: Model, as: 'model', required: false },
+          { model: TaskCompletion, as: 'completions', required: false },
+        ],
+      });
+
+      if (!taskRecord) {
+        return res.status(404).json({ message: 'Tarefa não encontrada.' });
+      }
+
+      const updates = {};
+      if (name !== undefined) updates.name = name.trim();
+      if (description !== undefined || notes !== undefined) {
+        updates.description = (description !== undefined ? description : notes).trim();
+      }
+      if (startTime !== undefined) updates.startTime = startTime || null;
+      if (endTime !== undefined) updates.endTime = endTime || null;
+      if (recurrence !== undefined) updates.recurrence = recurrence;
+      if (date !== undefined && taskRecord.recurrence === 'none') updates.date = date || null;
+
+      const isRecurrent =
+        (updates.recurrence || taskRecord.recurrence) &&
+        (updates.recurrence || taskRecord.recurrence) !== 'none';
+
+      // Tratamento de conclusão
+      if (done !== undefined) {
+        const targetDone = Boolean(done);
+
+        if (isRecurrent) {
+          // Tarefa recorrente: atualiza a conclusão específica da ocorrência nesta data
+          const existingComp = await TaskCompletion.findOne({
+            where: {
+              id_task: numId,
+              id_account: userId,
+              date: occurrenceDate,
+            },
+          });
+
+          if (existingComp) {
+            await existingComp.update({ completed: targetDone });
+          } else {
+            await TaskCompletion.create({
+              id_task: numId,
+              id_account: userId,
+              date: occurrenceDate,
+              completed: targetDone,
+            });
+          }
+          // Garante que a recorrência principal permaneça ativa no banco!
+        } else {
+          // Tarefa não recorrente: salva em Task.done
+          updates.done = targetDone;
+          // Também sincroniza com TaskCompletion para consistência
+          if (occurrenceDate) {
+            const existingComp = await TaskCompletion.findOne({
+              where: {
+                id_task: numId,
+                id_account: userId,
+                date: occurrenceDate,
+              },
+            });
+            if (existingComp) {
+              await existingComp.update({ completed: targetDone });
+            } else {
+              await TaskCompletion.create({
+                id_task: numId,
+                id_account: userId,
+                date: occurrenceDate,
+                completed: targetDone,
+              });
+            }
+          }
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await taskRecord.update(updates);
+      }
+
+      // Recarrega completions atualizadas
+      const freshCompletions = await TaskCompletion.findAll({
+        where: { id_task: numId, id_account: userId },
+      });
+
+      const formatted = formatSequelizeTask(
+        taskRecord,
+        null,
+        occurrenceDate,
+        freshCompletions
+      );
+
+      return res.status(200).json({
+        message: 'Tarefa atualizada com sucesso.',
+        task: formatted,
+      });
+    }
+
+    // Modo Fallback em Memória
+    const task = inMemoryTasks.find((t) => t.id === id && (t.id_account || 1) === userId);
     if (!task) {
       return res.status(404).json({ message: 'Tarefa não encontrada.' });
     }
-    task.done = !task.done;
-    return res.status(200).json({ message: 'Status da tarefa atualizado com sucesso.', task });
+
+    if (name !== undefined) task.name = name.trim();
+    if (description !== undefined || notes !== undefined) {
+      task.description = (description !== undefined ? description : notes).trim();
+      task.notes = task.description;
+    }
+    if (startTime !== undefined) task.startTime = startTime || null;
+    if (endTime !== undefined) task.endTime = endTime || null;
+    if (recurrence !== undefined) task.recurrence = recurrence;
+    if (date !== undefined && task.recurrence === 'none') task.date = date || null;
+
+    const isRecurrent = task.recurrence && task.recurrence !== 'none';
+
+    if (done !== undefined) {
+      const targetDone = Boolean(done);
+
+      if (isRecurrent) {
+        const existingIdx = inMemoryCompletions.findIndex(
+          (c) => String(c.id_task) === String(id) && c.date === occurrenceDate
+        );
+        if (existingIdx >= 0) {
+          inMemoryCompletions[existingIdx].completed = targetDone;
+        } else {
+          inMemoryCompletions.push({
+            id_completion: Date.now(),
+            id_task: id,
+            id_account: userId,
+            date: occurrenceDate,
+            completed: targetDone,
+            createdAt: new Date(),
+          });
+        }
+      } else {
+        task.done = targetDone;
+        const existingIdx = inMemoryCompletions.findIndex(
+          (c) => String(c.id_task) === String(id) && c.date === occurrenceDate
+        );
+        if (existingIdx >= 0) {
+          inMemoryCompletions[existingIdx].completed = targetDone;
+        } else if (occurrenceDate) {
+          inMemoryCompletions.push({
+            id_completion: Date.now(),
+            id_task: id,
+            id_account: userId,
+            date: occurrenceDate,
+            completed: targetDone,
+            createdAt: new Date(),
+          });
+        }
+      }
+    }
+
+    saveLocalStore();
+
+    const formatted = formatInMemoryTask(task, null, occurrenceDate);
+
+    return res.status(200).json({
+      message: 'Tarefa atualizada com sucesso.',
+      task: formatted,
+    });
   } catch (e) {
     return res.status(500).json({ message: `Erro ao atualizar tarefa: ${e.message}` });
   }
 };
 
-export const completeTask = async (req, res) => {
+/**
+ * Alterna o status da tarefa (concluída / pendente)
+ */
+export const toggleTask = async (req, res) => {
   try {
+    const userId = req.user?.id || 1;
     const { id } = req.params;
-    const task = inMemoryTasks.find((t) => t.id === id);
+    const userTz = getUserTimezone(req);
+    const targetDate = req.body?.date || req.query?.date || getTodayDateStr(userTz);
+
+    if (await isDatabaseConnected()) {
+      const numId = Number(id);
+      if (isNaN(numId)) {
+        return res.status(400).json({ message: 'ID de tarefa inválido.' });
+      }
+
+      const taskRecord = await Task.findOne({
+        where: { id_task: numId, id_account: userId },
+        include: [{ model: TaskCompletion, as: 'completions', required: false }],
+      });
+
+      if (!taskRecord) {
+        return res.status(404).json({ message: 'Tarefa não encontrada.' });
+      }
+
+      const isRecurrent = taskRecord.recurrence && taskRecord.recurrence !== 'none';
+      let newDoneState = false;
+
+      if (isRecurrent) {
+        const existingComp = await TaskCompletion.findOne({
+          where: {
+            id_task: numId,
+            id_account: userId,
+            date: targetDate,
+          },
+        });
+
+        newDoneState = existingComp ? !existingComp.completed : true;
+
+        if (existingComp) {
+          await existingComp.update({ completed: newDoneState });
+        } else {
+          await TaskCompletion.create({
+            id_task: numId,
+            id_account: userId,
+            date: targetDate,
+            completed: newDoneState,
+          });
+        }
+      } else {
+        newDoneState = req.body?.done !== undefined ? Boolean(req.body.done) : !taskRecord.done;
+        await taskRecord.update({ done: newDoneState });
+
+        const existingComp = await TaskCompletion.findOne({
+          where: {
+            id_task: numId,
+            id_account: userId,
+            date: targetDate,
+          },
+        });
+        if (existingComp) {
+          await existingComp.update({ completed: newDoneState });
+        } else {
+          await TaskCompletion.create({
+            id_task: numId,
+            id_account: userId,
+            date: targetDate,
+            completed: newDoneState,
+          });
+        }
+      }
+
+      const freshCompletions = await TaskCompletion.findAll({
+        where: { id_task: numId, id_account: userId },
+      });
+
+      const formatted = formatSequelizeTask(taskRecord, null, targetDate, freshCompletions);
+
+      return res.status(200).json({
+        message: 'Status da tarefa atualizado com sucesso.',
+        task: formatted,
+      });
+    }
+
+    // Fallback em memória
+    const task = inMemoryTasks.find((t) => t.id === id && (t.id_account || 1) === userId);
     if (!task) {
       return res.status(404).json({ message: 'Tarefa não encontrada.' });
     }
-    task.done = true;
-    return res.status(200).json({ message: 'Tarefa concluída com sucesso.', task });
+
+    const isRecurrent = task.recurrence && task.recurrence !== 'none';
+    let newDoneState = false;
+
+    if (isRecurrent) {
+      const existingIdx = inMemoryCompletions.findIndex(
+        (c) => String(c.id_task) === String(id) && c.date === targetDate
+      );
+      if (existingIdx >= 0) {
+        newDoneState = !inMemoryCompletions[existingIdx].completed;
+        inMemoryCompletions[existingIdx].completed = newDoneState;
+      } else {
+        newDoneState = true;
+        inMemoryCompletions.push({
+          id_completion: Date.now(),
+          id_task: id,
+          id_account: userId,
+          date: targetDate,
+          completed: true,
+          createdAt: new Date(),
+        });
+      }
+    } else {
+      newDoneState = req.body?.done !== undefined ? Boolean(req.body.done) : !task.done;
+      task.done = newDoneState;
+
+      const existingIdx = inMemoryCompletions.findIndex(
+        (c) => String(c.id_task) === String(id) && c.date === targetDate
+      );
+      if (existingIdx >= 0) {
+        inMemoryCompletions[existingIdx].completed = newDoneState;
+      } else {
+        inMemoryCompletions.push({
+          id_completion: Date.now(),
+          id_task: id,
+          id_account: userId,
+          date: targetDate,
+          completed: newDoneState,
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    saveLocalStore();
+
+    const formatted = formatInMemoryTask(task, null, targetDate);
+
+    return res.status(200).json({
+      message: 'Status da tarefa atualizado com sucesso.',
+      task: formatted,
+    });
   } catch (e) {
-    return res.status(500).json({ message: `Erro ao concluir tarefa: ${e.message}` });
+    return res.status(500).json({ message: `Erro ao alternar status da tarefa: ${e.message}` });
   }
+};
+
+/**
+ * Marca como concluída (true)
+ */
+export const completeTask = async (req, res) => {
+  req.body = { ...req.body, done: true };
+  return updateTask(req, res);
 };

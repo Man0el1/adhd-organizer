@@ -5,12 +5,13 @@ import {
   CalendarDays,
   Calendar as CalendarIcon,
   Brain,
-  Check,
   AlertCircle,
   CheckCircle2,
   Repeat,
   AlignLeft,
 } from 'lucide-react';
+import { apiFetch } from '../utils/api.js';
+import { getTodayLocalStr } from '../utils/date.js';
 
 const FALLBACK_SELECTABLE_MODELS = [
   {
@@ -19,8 +20,8 @@ const FALLBACK_SELECTABLE_MODELS = [
     shortName: 'Agenda Visual',
     type: 'routine',
     icon: CalendarIcon,
-    iconColor: 'text-[#A67C52]',
-    hint: 'Aparece nos blocos de tempo do dia',
+    iconColor: 'text-blue-600',
+    hint: 'Blocos de tempo diários',
   },
   {
     id: 'calendario',
@@ -28,8 +29,8 @@ const FALLBACK_SELECTABLE_MODELS = [
     shortName: 'Calendário',
     type: 'calendario',
     icon: CalendarDays,
-    iconColor: 'text-[#800020]',
-    hint: 'Aparece no grid mensal e visão de prazos',
+    iconColor: 'text-indigo-600',
+    hint: 'Grade de prazos e datas',
   },
   {
     id: 'brain-dump',
@@ -37,8 +38,8 @@ const FALLBACK_SELECTABLE_MODELS = [
     shortName: 'Brain Dump',
     type: 'brain-dump',
     icon: Brain,
-    iconColor: 'text-violet-400',
-    hint: 'Aparece na lista de captura mental rápida',
+    iconColor: 'text-amber-600',
+    hint: 'Anotação rápida',
   },
 ];
 
@@ -62,6 +63,8 @@ export default function FullScreenOverlay({
   onClose,
   onTaskCreated,
   availableModels = [],
+  initialModelId = null,
+  isDarkMode = false,
 }) {
   // Constrói lista de modelos selecionáveis a partir das instâncias configuradas pelo usuário
   const selectableModels = useMemo(() => {
@@ -71,16 +74,16 @@ export default function FullScreenOverlay({
       if (filtered.length > 0) {
         return filtered.map((m) => {
           let icon = CalendarIcon;
-          let iconColor = 'text-[#A67C52]';
+          let iconColor = 'text-blue-600';
           let hint = 'Blocos de tempo diários';
 
           if (m.type === 'calendario') {
             icon = CalendarDays;
-            iconColor = 'text-[#800020]';
+            iconColor = 'text-indigo-600';
             hint = 'Grade de prazos e datas';
           } else if (m.type === 'brain-dump') {
             icon = Brain;
-            iconColor = 'text-violet-400';
+            iconColor = 'text-amber-600';
             hint = 'Anotação rápida';
           }
 
@@ -98,23 +101,14 @@ export default function FullScreenOverlay({
     return FALLBACK_SELECTABLE_MODELS;
   }, [availableModels]);
 
-  // Task basic fields
+  const [selectedModelId, setSelectedModelId] = useState('');
   const [taskName, setTaskName] = useState('');
   const [description, setDescription] = useState('');
-
-  // Selected models — starts with all selectable models selected by default
-  const [selectedModelIds, setSelectedModelIds] = useState([]);
-
-  // Scheduling (Date, Start Time, End Time)
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const [date, setDate] = useState(todayStr);
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('10:00');
-
-  // Recurrence
+  const [date, setDate] = useState(() => getTodayLocalStr());
+  const [startTime, setStartTime] = useState('08:00');
+  const [endTime, setEndTime] = useState('09:00');
   const [recurrence, setRecurrence] = useState('none');
 
-  // Feedback
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -135,18 +129,22 @@ export default function FullScreenOverlay({
     }
   };
 
-  // Quando abre o overlay, reseta os campos e seleciona todos os modelos disponíveis
+  // Quando abre o overlay, reseta os campos e seleciona o modelo único inicial
   useEffect(() => {
     if (isOpen) {
-      setSelectedModelIds(selectableModels.map((m) => m.id));
+      const defaultId =
+        (initialModelId && selectableModels.some((m) => m.id === initialModelId)
+          ? initialModelId
+          : selectableModels[0]?.id) || '';
+      setSelectedModelId(defaultId);
       setErrorMsg('');
       setSuccessMsg('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(getTodayLocalStr());
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
     }
-  }, [isOpen, selectableModels]);
+  }, [isOpen, selectableModels, initialModelId]);
 
   // Close on Escape key
   useEffect(() => {
@@ -163,28 +161,20 @@ export default function FullScreenOverlay({
     };
   }, [isOpen, onClose]);
 
-  const toggleModelSelection = (modelId) => {
-    if (selectedModelIds.includes(modelId)) {
-      setSelectedModelIds(selectedModelIds.filter((id) => id !== modelId));
-    } else {
-      setSelectedModelIds([...selectedModelIds, modelId]);
-    }
-  };
+  const selectedModel =
+    selectableModels.find((m) => m.id === selectedModelId) || selectableModels[0];
 
-  const hasCalendar = selectedModelIds.some((id) => {
-    if (id === 'calendario' || id.includes('calendario')) return true;
-    const match = selectableModels.find((m) => m.id === id);
-    return match?.type === 'calendario';
-  });
+  const isCalendar =
+    selectedModel?.type === 'calendario' ||
+    (typeof selectedModel?.id === 'string' && selectedModel.id.includes('calendario'));
 
-  const hasRoutine = selectedModelIds.some((id) => {
-    if (id === 'routine' || id.includes('routine')) return true;
-    const match = selectableModels.find((m) => m.id === id);
-    return match?.type === 'routine';
-  });
+  const isRoutine =
+    selectedModel?.type === 'routine' ||
+    (typeof selectedModel?.id === 'string' && selectedModel.id.includes('routine'));
 
-  const isStartTimeRequired = hasRoutine;
-  const isDateRequired = hasCalendar || hasRoutine;
+  const isStartTimeRequired = isRoutine;
+  const isDateRequired = isCalendar || isRoutine;
+  const showScheduleSection = isCalendar || isRoutine;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -196,13 +186,13 @@ export default function FullScreenOverlay({
       return;
     }
 
-    if (selectedModelIds.length === 0) {
-      setErrorMsg('Selecione pelo menos um modelo para vincular a tarefa.');
+    if (!selectedModelId) {
+      setErrorMsg('Selecione o modelo ao qual a tarefa pertence.');
       return;
     }
 
     if (isDateRequired && !date) {
-      setErrorMsg('A data é obrigatória para os modelos selecionados.');
+      setErrorMsg('A data é obrigatória para o modelo selecionado.');
       return;
     }
 
@@ -220,33 +210,35 @@ export default function FullScreenOverlay({
 
     setIsLoading(true);
 
+    const hasTime = (isRoutine || isCalendar) && Boolean(startTime);
     const payload = {
       name: taskName.trim(),
       description: description.trim(),
-      notes: description.trim(),
-      modelIds: selectedModelIds,
       date: isDateRequired ? date : null,
-      startTime: startTime || null,
-      endTime: finalEndTime || null,
-      recurrence: recurrence || 'none',
+      startTime: hasTime ? startTime : null,
+      endTime: hasTime && finalEndTime ? finalEndTime : null,
+      recurrence: isCalendar || isRoutine ? recurrence : 'none',
+      modelId: selectedModelId,
+      modelType: selectedModel?.type || 'routine',
+      notes: selectedModel?.type === 'brain-dump' ? description.trim() : null,
     };
 
     try {
-      const response = await fetch('/api/tasks', {
+      const res = await apiFetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Falha ao salvar tarefa no backend');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erro ao salvar a tarefa no backend');
       }
 
-      const data = await response.json();
-      setSuccessMsg(`Tarefa "${data.task.name}" salva com sucesso!`);
+      const data = await res.json();
+      setSuccessMsg('Tarefa criada com sucesso!');
 
-      // Dispatch global event for instant reactive update across all tabs
+      // Notify window so all active models refresh immediately
       window.dispatchEvent(
         new CustomEvent('focusmod_task_created', { detail: data.task })
       );
@@ -258,11 +250,11 @@ export default function FullScreenOverlay({
       setTimeout(() => {
         setTaskName('');
         setDescription('');
-        setSuccessMsg('');
         onClose();
-      }, 700);
+      }, 500);
     } catch (err) {
-      setErrorMsg(err.message || 'Erro de conexão com o backend.');
+      console.error(err);
+      setErrorMsg(err.message || 'Falha na conexão com o servidor.');
     } finally {
       setIsLoading(false);
     }
@@ -272,265 +264,297 @@ export default function FullScreenOverlay({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Semi-transparent backdrop — background is still visible behind with blur */}
+      {/* Semi-transparent backdrop */}
       <div
-        className="fixed inset-0 bg-black/55 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
+        className="fixed inset-0 bg-black/40 transition-opacity animate-in fade-in duration-200"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Right Lateral Slide-over Panel covering full vertical height */}
-      <div className="relative z-50 w-full sm:w-[480px] h-full bg-[#251818] border-l border-[#3D2B2B] shadow-2xl flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-300">
+      {/* Right Lateral Slide-over Panel */}
+      <div
+        className={`relative z-50 w-full sm:w-[500px] md:w-[560px] h-full border-l shadow-2xl flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-200 transition-colors ${
+          isDarkMode
+            ? 'bg-slate-900 border-slate-800 text-slate-100'
+            : 'bg-[#f4f7fa] border-[#d3dce6] text-slate-900'
+        }`}
+      >
         {/* Top Header */}
-        <div className="p-4 sm:p-5 border-b border-[#3D2B2B] bg-[#1E1414] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#800020] text-[#F5E6DA] flex items-center justify-center font-bold shadow">
-              <Plus className="w-5 h-5 stroke-[2.5]" />
+        <div
+          className={`px-4 py-3 border-b flex items-center justify-between shrink-0 ${
+            isDarkMode
+              ? 'bg-slate-950 border-slate-800'
+              : 'bg-[#e8edf2] border-[#d3dce6]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[#1d56af] text-white flex items-center justify-center font-bold shadow-xs">
+              <Plus className="w-4 h-4 stroke-[2.5]" />
             </div>
-            <div>
-              <h2 className="text-sm sm:text-base font-bold text-[#F5E6DA] leading-tight">
-                Nova Tarefa
-              </h2>
-              <p className="text-[11px] text-[#A67C52] leading-tight">
-                Sincronizada diretamente com o backend
-              </p>
-            </div>
+            <h2 className="text-sm sm:text-base font-bold leading-tight">
+              Nova Tarefa
+            </h2>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-[#A67C52] hover:text-[#F5E6DA] hover:bg-[#251818] transition-colors cursor-pointer"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              isDarkMode
+                ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8edf2]'
+            }`}
             title="Fechar (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Scrollable Form Body */}
+        {/* Form Body */}
         <form
           onSubmit={handleSubmit}
-          className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 min-h-0 text-[#F5E6DA]"
+          className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 min-h-0 flex flex-col justify-between"
         >
-          {/* Feedback Banners */}
-          {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-950/80 border border-red-700/60 text-red-200 text-xs flex items-center gap-2 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
+          <div className="space-y-3">
+            {/* Feedback Banners */}
+            {errorMsg && (
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
 
-          {successMsg && (
-            <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-600/70 text-emerald-200 text-xs flex items-center gap-2 animate-in fade-in">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span>{successMsg}</span>
-            </div>
-          )}
+            {successMsg && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>{successMsg}</span>
+              </div>
+            )}
 
-          {/* Passo 1: Seleção de Modelos / Instâncias */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-[#A67C52] uppercase tracking-wider">
-                1. Em quais modelos adicionar? <span className="text-red-400">*</span>
-              </label>
-              <span className="text-[10px] text-[#A67C52] font-mono">
-                {selectedModelIds.length} selecionado(s)
-              </span>
-            </div>
-            <p className="text-[11px] text-[#A67C52]/90 leading-tight">
-              Todos começam selecionados. Desmarque caso não queira que a tarefa apareça naquele modelo:
-            </p>
+            {/* Passo 1: Seleção de Modelo Único */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Modelo da Tarefa <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-[10px] text-[#1d56af] font-semibold truncate max-w-[200px]">
+                  {selectedModel?.name || 'Selecione um'}
+                </span>
+              </div>
 
-            <div className="grid grid-cols-1 gap-2 pt-1 max-h-48 overflow-y-auto pr-1">
-              {selectableModels.map((mod) => {
-                const Icon = mod.icon;
-                const isChecked = selectedModelIds.includes(mod.id);
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {selectableModels.map((mod) => {
+                  const Icon = mod.icon;
+                  const isSelected = selectedModelId === mod.id;
 
-                return (
-                  <button
-                    key={mod.id}
-                    type="button"
-                    onClick={() => toggleModelSelection(mod.id)}
-                    className={`px-3.5 py-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-center justify-between gap-3 ${
-                      isChecked
-                        ? 'bg-[#2D1F1F] border-[#800020] text-[#F5E6DA] shadow-sm ring-1 ring-[#800020]/50'
-                        : 'bg-[#1A1010] border-[#3D2B2B] text-[#6D5A5A] hover:border-[#6D5A5A]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 truncate">
-                      <Icon className={`w-4 h-4 ${isChecked ? mod.iconColor : 'text-[#6D5A5A]'}`} />
-                      <div className="truncate">
-                        <p className="text-xs font-bold leading-tight truncate">{mod.name}</p>
-                        <p className="text-[10px] text-[#A67C52] leading-tight mt-0.5 truncate">{mod.hint}</p>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
-                        isChecked
-                          ? 'bg-[#800020] border-[#800020] text-[#F5E6DA]'
-                          : 'border-[#4D3838] bg-transparent'
+                  return (
+                    <button
+                      key={mod.id}
+                      type="button"
+                      onClick={() => setSelectedModelId(mod.id)}
+                      className={`px-2.5 py-2 rounded-xl border text-left cursor-pointer transition-all flex items-center justify-between gap-1.5 ${
+                        isSelected
+                          ? isDarkMode
+                            ? 'bg-blue-950/70 border-blue-700 text-blue-100 ring-1 ring-blue-600/40 shadow-xs'
+                            : 'bg-[#e3edfa] border-[#a3c5ed] text-[#124286] ring-1 ring-[#1d56af]/25 shadow-xs'
+                          : isDarkMode
+                          ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                          : 'bg-[#ffffff] border-[#d3dce6] text-slate-600 hover:border-[#b9cee2]'
                       }`}
                     >
-                      {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                    </div>
-                  </button>
-                );
-              })}
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? mod.iconColor : 'text-slate-400'}`} />
+                        <span className="text-xs font-semibold truncate">{mod.name}</span>
+                      </div>
+
+                      <div
+                        className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected
+                            ? 'border-[#1d56af] bg-[#1d56af]'
+                            : isDarkMode
+                            ? 'border-slate-600 bg-transparent'
+                            : 'border-slate-300 bg-transparent'
+                        }`}
+                      >
+                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          {/* Passo 2: Nome da Tarefa */}
-          <div className="space-y-1.5">
-            <label htmlFor="task-name-input" className="block text-xs font-bold text-[#A67C52] uppercase tracking-wider">
-              2. Nome da Tarefa <span className="text-red-400">*</span>
-            </label>
-            <input
-              id="task-name-input"
-              type="text"
-              required
-              value={taskName}
-              onChange={(e) => setTaskName(e.target.value)}
-              placeholder="Ex: Entregar relatório de química, Revisar capítulo 4..."
-              className="w-full bg-[#1E1414] border border-[#3D2B2B] focus:border-[#800020] rounded-xl px-4 py-2.5 text-xs sm:text-sm text-[#F5E6DA] placeholder-[#6D5A5A] outline-none shadow-sm transition-colors"
-              autoFocus
-            />
-          </div>
+            {/* Passo 2: Nome da Tarefa */}
+            <div className="space-y-1">
+              <label htmlFor="task-name-input" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Nome da Tarefa <span className="text-rose-500">*</span>
+              </label>
+              <input
+                id="task-name-input"
+                type="text"
+                required
+                value={taskName}
+                onChange={(e) => setTaskName(e.target.value)}
+                placeholder="Ex: Entregar relatório de química..."
+                className={`w-full rounded-xl px-3 py-2 text-xs sm:text-sm outline-none border transition-colors ${
+                  isDarkMode
+                    ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-500 focus:border-[#1d56af]'
+                    : 'bg-[#ffffff] border-[#d3dce6] text-slate-900 placeholder-slate-400 focus:border-[#1d56af] shadow-xs'
+                }`}
+                autoFocus
+              />
+            </div>
 
-          {/* Passo 3: Descrição Opcional */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#A67C52] uppercase tracking-wider flex items-center gap-1.5">
-              <AlignLeft className="w-3.5 h-3.5 text-[#A67C52]" />
-              3. Descrição / Observações <span className="text-[#6D5A5A] font-normal text-[11px]">(Opcional)</span>
-            </label>
-            <textarea
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Adicione orientações, links ou detalhes adicionais da tarefa..."
-              className="w-full bg-[#1E1414] border border-[#3D2B2B] focus:border-[#800020] rounded-xl p-3 text-xs sm:text-sm text-[#F5E6DA] placeholder-[#6D5A5A] outline-none resize-none transition-colors"
-            />
-          </div>
+            {/* Passo 3: Descrição Opcional */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <AlignLeft className="w-3.5 h-3.5" />
+                Descrição <span className="text-slate-400 font-normal text-[10px]">(Opcional)</span>
+              </label>
+              <textarea
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Orientações ou detalhes adicionais..."
+                className={`w-full rounded-xl px-3 py-1.5 text-xs outline-none resize-none border transition-colors ${
+                  isDarkMode
+                    ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-500 focus:border-[#1d56af]'
+                    : 'bg-[#ffffff] border-[#d3dce6] text-slate-900 placeholder-slate-400 focus:border-[#1d56af] shadow-xs'
+                }`}
+              />
+            </div>
 
-          {/* Passo 4: Agendamento & Prazos */}
-          {(hasCalendar || hasRoutine) && (
-            <div className="space-y-3.5 p-4 rounded-2xl bg-[#1E1414]/90 border border-[#3D2B2B]">
-              <div className="flex items-center justify-between border-b border-[#3D2B2B] pb-2">
-                <span className="text-xs font-bold text-[#F5E6DA] flex items-center gap-1.5">
-                  <CalendarDays className="w-4 h-4 text-[#A67C52]" />
-                  4. Agendamento & Prazos
-                </span>
-                <span className="text-[10px] text-[#A67C52] bg-[#2D1F1F] px-2 py-0.5 rounded-md border border-[#3D2B2B]">
-                  Compartilhado entre abas
-                </span>
-              </div>
+            {/* Passo 4: Agendamento & Prazos */}
+            {showScheduleSection && (
+              <div
+                className={`space-y-2 p-3 rounded-xl border ${
+                  isDarkMode
+                    ? 'bg-slate-950 border-slate-800'
+                    : 'bg-[#e8edf2] border-[#d3dce6]'
+                }`}
+              >
+                <div
+                  className={`text-[11px] font-bold flex items-center gap-1.5 border-b pb-1.5 ${
+                    isDarkMode ? 'border-slate-800 text-slate-200' : 'border-[#d3dce6] text-slate-700'
+                  }`}
+                >
+                  <CalendarDays className="w-3.5 h-3.5 text-[#1d56af]" />
+                  Agendamento & Prazos
+                </div>
 
-              {/* Data */}
-              <div>
-                <label className="block text-xs font-semibold text-[#D1BFA5] mb-1">
-                  Data {isDateRequired && <span className="text-red-400">*</span>}
-                </label>
-                <input
-                  type="date"
-                  required={isDateRequired}
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-[#251818] border border-[#3D2B2B] focus:border-[#800020] rounded-xl px-3 py-2 text-xs sm:text-sm text-[#F5E6DA] outline-none"
-                />
-              </div>
-
-              {/* Horários: Início e Fim */}
-              <div className="space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-xs font-semibold text-[#D1BFA5] mb-1">
-                      Horário Inicial{' '}
-                      {isStartTimeRequired ? (
-                        <span className="text-red-400 font-bold">* (Obrigatório para Rotina)</span>
-                      ) : (
-                        <span className="text-[#6D5A5A] text-[11px]">(Opcional)</span>
-                      )}
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1 truncate">
+                      Data {isDateRequired && <span className="text-rose-500">*</span>}
+                    </label>
+                    <input
+                      type="date"
+                      required={isDateRequired}
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className={`w-full rounded-lg px-2.5 py-1.5 text-xs outline-none border ${
+                        isDarkMode
+                          ? 'bg-slate-900 border-slate-700 text-white focus:border-[#1d56af]'
+                          : 'bg-[#ffffff] border-[#d3dce6] text-slate-900 focus:border-[#1d56af]'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1 truncate">
+                      Início {isStartTimeRequired && <span className="text-rose-500 font-bold">*</span>}
                     </label>
                     <input
                       type="time"
                       required={isStartTimeRequired}
                       value={startTime}
                       onChange={(e) => handleStartTimeChange(e.target.value)}
-                      className={`w-full bg-[#251818] border rounded-xl px-3 py-2 text-xs sm:text-sm text-[#F5E6DA] outline-none ${
+                      className={`w-full rounded-lg px-2.5 py-1.5 text-xs outline-none border ${
                         isStartTimeRequired
-                          ? 'border-[#800020]'
-                          : 'border-[#3D2B2B] focus:border-[#800020]'
-                      }`}
+                          ? 'border-[#1d56af]'
+                          : isDarkMode
+                          ? 'border-slate-700 focus:border-[#1d56af]'
+                          : 'border-[#d3dce6] focus:border-[#1d56af]'
+                      } ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#ffffff] text-slate-900'}`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#D1BFA5] mb-1">
-                      Horário de Término <span className="text-[#6D5A5A] text-[11px]">(Opcional)</span>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1 truncate">
+                      Término <span className="text-slate-400 text-[10px]">(Opcional)</span>
                     </label>
                     <input
                       type="time"
                       value={endTime}
                       onChange={(e) => handleEndTimeChange(e.target.value)}
-                      className="w-full bg-[#251818] border border-[#3D2B2B] focus:border-[#800020] rounded-xl px-3 py-2 text-xs sm:text-sm text-[#F5E6DA] outline-none"
+                      className={`w-full rounded-lg px-2.5 py-1.5 text-xs outline-none border ${
+                        isDarkMode
+                          ? 'bg-slate-900 border-slate-700 text-white focus:border-[#1d56af]'
+                          : 'bg-[#ffffff] border-[#d3dce6] text-slate-900 focus:border-[#1d56af]'
+                      }`}
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* Recorrência */}
-              <div className="pt-2 border-t border-[#3D2B2B]/60">
-                <label className="text-xs font-semibold text-[#D1BFA5] mb-1.5 flex items-center gap-1.5">
-                  <Repeat className="w-3.5 h-3.5 text-[#A67C52]" />
-                  Repetição da Tarefa
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                  {[
-                    { id: 'none', label: 'Não se repete' },
-                    { id: 'daily', label: 'Diariamente' },
-                    { id: 'weekly', label: 'Semanalmente' },
-                    { id: 'monthly', label: 'Mensalmente' },
-                    { id: 'yearly', label: 'Anualmente' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setRecurrence(opt.id)}
-                      className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium text-center transition-colors cursor-pointer ${
-                        recurrence === opt.id
-                          ? 'bg-[#800020] border-[#800020] text-[#F5E6DA] font-bold shadow'
-                          : 'bg-[#251818] border-[#3D2B2B] text-[#D1BFA5] hover:bg-[#2D1F1F]'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                {/* Recorrência */}
+                <div
+                  className={`pt-2 border-t flex items-center justify-between gap-2 ${
+                    isDarkMode ? 'border-slate-800' : 'border-[#d3dce6]'
+                  }`}
+                >
+                  <label className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 shrink-0">
+                    <Repeat className="w-3.5 h-3.5 text-[#1d56af]" />
+                    Repetição:
+                  </label>
+                  <select
+                    value={recurrence}
+                    onChange={(e) => setRecurrence(e.target.value)}
+                    className={`rounded-lg px-2.5 py-1 text-xs outline-none border cursor-pointer ${
+                      isDarkMode
+                        ? 'bg-slate-900 border-slate-700 text-white focus:border-[#1d56af]'
+                        : 'bg-[#ffffff] border-[#d3dce6] text-slate-900 focus:border-[#1d56af]'
+                    }`}
+                  >
+                    <option value="none">Não se repete</option>
+                    <option value="daily">Diariamente</option>
+                    <option value="weekly">Semanalmente</option>
+                    <option value="monthly">Mensalmente</option>
+                    <option value="yearly">Anualmente</option>
+                  </select>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Drawer Footer */}
-          <div className="pt-4 border-t border-[#3D2B2B] flex items-center justify-between gap-3">
+          <div
+            className={`pt-3 border-t flex items-center justify-between gap-3 shrink-0 ${
+              isDarkMode ? 'border-slate-800' : 'border-[#d3dce6]'
+            }`}
+          >
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2.5 rounded-xl bg-[#1E1414] hover:bg-[#2D1F1F] text-[#D1BFA5] hover:text-[#F5E6DA] text-xs font-semibold transition-colors cursor-pointer border border-[#3D2B2B]"
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer border ${
+                isDarkMode
+                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                  : 'bg-[#e8edf2] hover:bg-[#dde4ec] text-slate-700 border-[#d3dce6]'
+              }`}
             >
               Cancelar
             </button>
 
             <button
               type="submit"
-              disabled={isLoading || selectedModelIds.length === 0}
-              className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl bg-[#800020] hover:bg-[#A00028] disabled:opacity-40 disabled:cursor-not-allowed text-[#F5E6DA] text-xs sm:text-sm font-bold transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isLoading || !selectedModelId}
+              className="px-5 py-2 rounded-xl bg-[#1d56af] hover:bg-[#16438a] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
             >
               {isLoading ? (
-                <span>Salvando no Backend...</span>
+                <span>Salvando...</span>
               ) : (
                 <>
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-4 h-4 stroke-[3]" />
                   <span>Criar Tarefa</span>
                 </>
               )}

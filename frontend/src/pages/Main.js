@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Clock,
   CalendarDays,
@@ -10,39 +10,52 @@ import {
   Trash2,
   Pencil,
   Loader2,
-  ChevronDown,
+  Sun,
+  Moon,
+  Globe,
 } from 'lucide-react';
 import Pomodoro from '../components/ModelsUi/Pomodoro.js';
 import Calendar from '../components/ModelsUi/Calendar.js';
 import Routine from '../components/ModelsUi/Routine.js';
 import BrainDump from '../components/ModelsUi/BrainDump.js';
 import FullScreenOverlay from '../components/ScreenOverlay.js';
+import AddModelModal from '../components/AddModelModal.js';
+import TimezoneSettingsModal from '../components/TimezoneSettingsModal.js';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../utils/api.js';
+import {
+  getTodayLocalStr,
+  getUserTimezone,
+  setUserTimezone,
+  getDetectedBrowserTimezone,
+  getFriendlyTimezoneLabel,
+} from '../utils/date.js';
+import { initGlobalPomodoroTicker } from '../utils/pomodoroManager.js';
 
 export const MODEL_TEMPLATES = [
   {
     type: 'routine',
     defaultName: 'Agenda Visual',
     icon: Clock,
-    color: 'text-[#A67C52]',
+    color: 'text-[#1d56af]',
   },
   {
     type: 'calendario',
     defaultName: 'Calendário',
     icon: CalendarDays,
-    color: 'text-[#800020]',
+    color: 'text-indigo-600',
   },
   {
     type: 'pomodoro',
     defaultName: 'Pomodoro',
     icon: Hourglass,
-    color: 'text-amber-400',
+    color: 'text-emerald-600',
   },
   {
     type: 'brain-dump',
     defaultName: 'Brain Dump',
     icon: Brain,
-    color: 'text-violet-400',
+    color: 'text-amber-600',
   },
 ];
 
@@ -66,7 +79,6 @@ function getInfoFromToken() {
   }
 }
 
-// Ex: Modelo_2
 export function getNextWindowsName(baseName, currentModels, currentId = null) {
   const existingNames = currentModels
     .filter((m) => (currentId ? m.id !== currentId : true))
@@ -100,13 +112,42 @@ export function getModelIcon(type) {
 export default function Main() {
   const navigate = useNavigate();
 
+  // Verifica se o token existe: caso não exista, redireciona para /login
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  // Modo Escuro persistido no localStorage (padrão: false / claro)
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('focusmod_theme');
+    return saved === 'dark';
+  });
+
+  const toggleDarkMode = () => {
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      localStorage.setItem('focusmod_theme', next ? 'dark' : 'light');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
   const [userModels, setUserModels] = useState(DEFAULT_MODELS);
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const [activeModelId, setActiveModelId] = useState(DEFAULT_MODELS[0].id);
   const [todayCounts, setTodayCounts] = useState({});
 
-  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-  const addMenuRef = useRef(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const [editingModelId, setEditingModelId] = useState(null);
   const [editingNameValue, setEditingNameValue] = useState('');
@@ -115,7 +156,10 @@ export default function Main() {
   const [dragOverIndex, setDragOverIndex] = useState(null);
 
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+  const [isTimezoneModalOpen, setIsTimezoneModalOpen] = useState(false);
+  const [currentTimezone, setCurrentTimezone] = useState(() => getUserTimezone());
   const [toastMessage, setToastMessage] = useState('');
+  const [pomodoroTickers, setPomodoroTickers] = useState({});
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -124,23 +168,53 @@ export default function Main() {
     }, 4000);
   };
 
+  // Inicializa o ticker em segundo plano do Pomodoro para continuar rodando
+  // mesmo que o usuário navegue entre a Agenda Visual, Calendário ou Brain Dump
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target)) {
-        setIsAddMenuOpen(false);
+    initGlobalPomodoroTicker();
+
+    const handlePomodoroTick = (e) => {
+      if (e?.detail?.modelId) {
+        setPomodoroTickers((prev) => ({
+          ...prev,
+          [e.detail.modelId]: e.detail,
+        }));
       }
     };
-    if (isAddMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+
+    const handlePomodoroStateChanged = (e) => {
+      if (e?.detail?.modelId) {
+        setPomodoroTickers((prev) => ({
+          ...prev,
+          [e.detail.modelId]: {
+            modelId: e.detail.modelId,
+            remainingSeconds: e.detail.state.remainingSeconds,
+            isRunning: e.detail.state.isRunning,
+          },
+        }));
+      }
     };
-  }, [isAddMenuOpen]);
+
+    const handlePomodoroCompleted = (e) => {
+      if (e?.detail?.notice) {
+        showToast(e.detail.notice);
+      }
+    };
+
+    window.addEventListener('focusmod_pomodoro_tick', handlePomodoroTick);
+    window.addEventListener('focusmod_pomodoro_state_changed', handlePomodoroStateChanged);
+    window.addEventListener('focusmod_pomodoro_completed', handlePomodoroCompleted);
+
+    return () => {
+      window.removeEventListener('focusmod_pomodoro_tick', handlePomodoroTick);
+      window.removeEventListener('focusmod_pomodoro_state_changed', handlePomodoroStateChanged);
+      window.removeEventListener('focusmod_pomodoro_completed', handlePomodoroCompleted);
+    };
+  }, []);
 
   const fetchUserModels = useCallback(async () => {
     try {
-      const res = await fetch('/api/user/models');
+      const res = await apiFetch('/api/user/models');
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.models) && data.models.length > 0) {
@@ -160,8 +234,8 @@ export default function Main() {
 
   const fetchTodayCounts = useCallback(async () => {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const res = await fetch(`/api/tasks/today-counts?today=${todayStr}`);
+      const todayStr = getTodayLocalStr(currentTimezone);
+      const res = await apiFetch(`/api/tasks/today-counts?today=${todayStr}&timezone=${encodeURIComponent(currentTimezone)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.counts) {
@@ -171,12 +245,49 @@ export default function Main() {
     } catch (err) {
       console.error(err);
     }
+  }, [currentTimezone]);
+
+  // Sincroniza e detecta automaticamente o fuso horário com o perfil no backend
+  const syncProfileTimezone = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/user/profile');
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.user?.timezone) {
+          setUserTimezone(data.user.timezone);
+          setCurrentTimezone(data.user.timezone);
+        } else {
+          // Se ainda não estiver salvo, detecta via Intl e persiste
+          const detected = getDetectedBrowserTimezone();
+          await apiFetch('/api/user/timezone', {
+            method: 'PATCH',
+            body: JSON.stringify({ timezone: detected }),
+          });
+          setUserTimezone(detected);
+          setCurrentTimezone(detected);
+        }
+      }
+    } catch (err) {
+      console.warn('Aviso ao sincronizar fuso horário:', err);
+    }
   }, []);
 
   useEffect(() => {
     fetchUserModels();
     fetchTodayCounts();
-  }, [fetchUserModels, fetchTodayCounts]);
+    syncProfileTimezone();
+  }, [fetchUserModels, fetchTodayCounts, syncProfileTimezone]);
+
+  useEffect(() => {
+    const handleTzChange = (e) => {
+      if (e?.detail?.timezone) {
+        setCurrentTimezone(e.detail.timezone);
+        fetchTodayCounts();
+      }
+    };
+    window.addEventListener('focusmod_timezone_changed', handleTzChange);
+    return () => window.removeEventListener('focusmod_timezone_changed', handleTzChange);
+  }, [fetchTodayCounts]);
 
   useEffect(() => {
     const handleTaskEvent = () => {
@@ -192,7 +303,7 @@ export default function Main() {
 
   const persistModelsToBackend = async (newModelsList, successMessage = '') => {
     try {
-      const res = await fetch('/api/user/models', {
+      const res = await apiFetch('/api/user/models', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ models: newModelsList }),
@@ -211,9 +322,10 @@ export default function Main() {
   };
 
   const handleDirectAddModel = async (template) => {
-    setIsAddMenuOpen(false);
+    setIsAddModalOpen(false);
 
-    const uniqueName = getNextWindowsName(template.defaultName, userModels);
+    const baseName = template.defaultName || template.name || 'Modelo';
+    const uniqueName = getNextWindowsName(baseName, userModels);
     const newInstance = {
       id: `mod-${template.type}-${Date.now()}`,
       type: template.type,
@@ -330,88 +442,142 @@ export default function Main() {
     userModels.find((m) => m.id === activeModelId) || userModels[0] || DEFAULT_MODELS[0];
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#1E1414] text-[#F5E6DA] overflow-hidden select-none font-sans">
-      <header className="h-14 border-b border-[#3D2B2B] bg-[#251818] px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-md z-20">
+    <div
+      className={`flex flex-col h-screen w-screen overflow-hidden select-none font-sans transition-colors duration-200 ${
+        isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#ebf0f5] text-slate-800'
+      }`}
+    >
+      {/* Top Header */}
+      <header
+        className={`h-14 border-b px-4 sm:px-6 flex items-center justify-between shrink-0 z-20 transition-colors ${
+          isDarkMode
+            ? 'bg-slate-900 border-slate-800 shadow-sm'
+            : 'bg-[#f4f7fa] border-[#d3dce6] shadow-xs'
+        }`}
+      >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-[#800020] flex items-center justify-center font-bold text-base text-[#F5E6DA] shadow">
+          <div className="w-8 h-8 rounded-xl bg-[#1d56af] flex items-center justify-center font-bold text-base text-white shadow-xs">
             F
           </div>
           <div>
-            <h1 className="font-bold text-base sm:text-lg leading-tight tracking-tight text-[#F5E6DA]">
+            <h1
+              className={`font-bold text-base sm:text-lg leading-tight tracking-tight ${
+                isDarkMode ? 'text-slate-100' : 'text-slate-900'
+              }`}
+            >
               FocusMod
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-[#1E1414] px-3 py-1.5 rounded-xl border border-[#3D2B2B]">
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span className="text-xs sm:text-sm font-medium text-[#F5E6DA] truncate max-w-[140px]">
+        {/* User name, Dark Mode toggle, and Logout */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* User badge */}
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-medium ${
+              isDarkMode
+                ? 'bg-slate-800 border-slate-700 text-slate-200'
+                : 'bg-[#e8edf2] border-[#d3dce6] text-slate-700'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="truncate max-w-[120px] sm:max-w-[180px] font-medium">
               {currentUserName}
             </span>
           </div>
 
+          {/* Timezone button */}
+          <button
+            type="button"
+            onClick={() => setIsTimezoneModalOpen(true)}
+            title={`Fuso horário configurado: ${currentTimezone}. Clique para alterar.`}
+            className={`px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-2xs hover:scale-[1.02] active:scale-95 ${
+              isDarkMode
+                ? 'bg-slate-800 hover:bg-slate-700 text-blue-300 border-slate-700'
+                : 'bg-[#e8edf2] hover:bg-[#dde4ec] text-[#124286] border-[#d3dce6]'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-[#1d56af] dark:text-blue-400 shrink-0" />
+            <span className="truncate max-w-[80px] sm:max-w-[140px]">
+              {getFriendlyTimezoneLabel(currentTimezone)}
+            </span>
+          </button>
+
+          {/* Dark Mode / Light Mode Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            title={isDarkMode ? 'Alternar tema (Claro)' : 'Alternar tema (Escuro)'}
+            aria-label={isDarkMode ? 'Alternar para modo claro' : 'Alternar para modo escuro'}
+            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+              isDarkMode
+                ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700'
+                : 'bg-[#e8edf2] hover:bg-[#dde4ec] text-slate-700 border-[#d3dce6]'
+            }`}
+          >
+            {isDarkMode ? (
+              <Sun className="w-4 h-4 text-amber-400 shrink-0" />
+            ) : (
+              <Moon className="w-4 h-4 text-slate-600 shrink-0" />
+            )}
+          </button>
+
+          {/* Logout button */}
           <button
             type="button"
             onClick={logout}
             title="Sair da conta"
-            className="p-2 rounded-xl bg-[#1E1414] hover:bg-[#800020] text-[#D1BFA5] hover:text-[#F5E6DA] transition-colors cursor-pointer text-xs border border-[#3D2B2B]"
+            className={`p-2 rounded-xl transition-colors cursor-pointer text-xs border ${
+              isDarkMode
+                ? 'bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-300 border-slate-700 hover:border-rose-800'
+                : 'bg-[#e8edf2] hover:bg-rose-50 text-slate-600 hover:text-rose-600 border-[#d3dce6] hover:border-rose-200'
+            }`}
           >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
 
+      {/* Main Layout Area */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
-        <aside className="w-full md:w-64 lg:w-72 bg-[#251818] border-r border-[#3D2B2B] flex flex-col justify-between shrink-0 overflow-hidden min-h-0 shadow-md">
+        {/* Sidebar */}
+        <aside
+          className={`w-full md:w-64 lg:w-72 border-r flex flex-col justify-between shrink-0 overflow-hidden min-h-0 transition-colors ${
+            isDarkMode
+              ? 'bg-slate-900 border-slate-800'
+              : 'bg-[#f4f7fa] border-[#d3dce6]'
+          }`}
+        >
           <div className="flex-1 flex flex-col overflow-hidden min-h-0 p-3 sm:p-4">
-            <div className="pb-2.5 mb-3 border-b border-[#3D2B2B] flex items-center justify-between shrink-0 relative">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#A67C52] flex items-center gap-1.5">
+            <div
+              className={`pb-2.5 mb-3 border-b flex items-center justify-between shrink-0 relative ${
+                isDarkMode ? 'border-slate-800' : 'border-[#d3dce6]'
+              }`}
+            >
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5" />
                 MODELOS
               </span>
 
-              <div className="relative" ref={addMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
-                  title="Adicionar modelo"
-                  className="px-2.5 py-1 rounded-xl bg-[#1E1414] hover:bg-[#800020] text-[#A67C52] hover:text-[#F5E6DA] transition-colors border border-[#3D2B2B] text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>Adicionar</span>
-                  <ChevronDown className="w-3 h-3 opacity-70" />
-                </button>
-
-                {isAddMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-48 bg-[#251818] border border-[#3D2B2B] rounded-xl shadow-2xl p-1.5 z-40 space-y-1 animate-in fade-in zoom-in-95">
-                    <div className="px-2.5 py-1 text-[10px] font-bold text-[#A67C52] uppercase tracking-wider border-b border-[#3D2B2B]/70">
-                      Escolha o modelo:
-                    </div>
-
-                    {MODEL_TEMPLATES.map((tmpl) => {
-                      const Icon = tmpl.icon;
-                      return (
-                        <button
-                          key={tmpl.type}
-                          type="button"
-                          onClick={() => handleDirectAddModel(tmpl)}
-                          className="w-full px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-[#F5E6DA] hover:bg-[#800020] hover:text-[#F5E6DA] flex items-center gap-2.5 transition-colors cursor-pointer group"
-                        >
-                          <Icon className={`w-4 h-4 ${tmpl.color} group-hover:text-[#F5E6DA]`} />
-                          <span>{tmpl.defaultName}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(true)}
+                title="Adicionar novo modelo"
+                className={`px-2.5 py-1 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 transition-colors ${
+                  isDarkMode
+                    ? 'bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border-blue-800/80'
+                    : 'bg-[#e3edfa] hover:bg-[#d4e4f7] text-[#124286] border-[#a3c5ed]'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>Adicionar</span>
+              </button>
             </div>
 
-            <nav className="flex-1 overflow-y-auto space-y-2 pr-0.5 min-h-0">
+            <nav className="flex-1 overflow-y-auto space-y-1.5 pr-0.5 min-h-0">
               {isLoadingModels && userModels.length === 0 ? (
-                <div className="flex items-center justify-center py-8 text-[#A67C52] gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                <div className="flex items-center justify-center py-8 text-slate-400 gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#1d56af]" />
                   <span className="text-xs">Carregando modelos...</span>
                 </div>
               ) : (
@@ -436,20 +602,30 @@ export default function Main() {
                           setActiveModelId(model.id);
                         }
                       }}
-                      className={`group relative w-full px-2.5 py-2.5 rounded-2xl border transition-all flex items-center gap-2 cursor-pointer shadow-sm select-none ${
-                        isBeingDragged ? 'opacity-30 border-dashed border-[#A67C52]' : ''
+                      className={`group relative w-full px-2.5 py-2.5 rounded-xl border transition-all flex items-center gap-2 cursor-pointer shadow-xs select-none ${
+                        isBeingDragged ? 'opacity-30 border-dashed border-[#1d56af]' : ''
                       } ${
                         isOver && !isBeingDragged
-                          ? 'border-amber-400 ring-2 ring-amber-500/40 bg-[#2D1F1F]'
+                          ? isDarkMode
+                            ? 'border-blue-500 ring-2 ring-blue-500/30 bg-slate-800'
+                            : 'border-[#1d56af] ring-2 ring-[#1d56af]/20 bg-[#e3edfa]/60'
                           : ''
                       } ${
                         isActive
-                          ? 'bg-[#800020] border-[#A67C52] text-[#F5E6DA] shadow-md ring-1 ring-[#800020]'
-                          : 'bg-[#1E1414] border-[#3D2B2B] text-[#D1BFA5] hover:bg-[#2D1F1F] hover:text-[#F5E6DA]'
+                          ? isDarkMode
+                            ? 'bg-blue-950/70 border-blue-700 text-blue-100 shadow-xs ring-1 ring-blue-600/40 font-semibold'
+                            : 'bg-[#e3edfa] border-[#a3c5ed] text-[#124286] shadow-xs ring-1 ring-[#1d56af]/25 font-semibold'
+                          : isDarkMode
+                          ? 'bg-slate-800/80 border-slate-700/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+                          : 'bg-[#ffffff]/80 border-[#d3dce6] text-slate-700 hover:bg-[#e9edf2] hover:text-slate-900 hover:border-[#b9cee2]'
                       }`}
                     >
                       <div
-                        className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-[#6D5A5A] hover:text-[#D1BFA5] shrink-0 touch-none flex flex-col justify-center items-center gap-[3px]"
+                        className={`cursor-grab active:cursor-grabbing p-1 -ml-1 shrink-0 touch-none flex flex-col justify-center items-center gap-[3px] transition-colors ${
+                          isDarkMode
+                            ? 'text-slate-500 hover:text-slate-300'
+                            : 'text-slate-300 hover:text-slate-500'
+                        }`}
                         title="Arrastar para reordenar"
                       >
                         <span className="w-3.5 h-[2px] bg-current rounded-full" />
@@ -458,10 +634,12 @@ export default function Main() {
                       </div>
 
                       <div
-                        className={`p-1.5 rounded-xl shrink-0 transition-colors ${
+                        className={`p-1.5 rounded-lg shrink-0 transition-colors ${
                           isActive
-                            ? 'bg-[#A67C52] text-[#1E1414]'
-                            : 'bg-[#251818] text-[#A67C52] group-hover:text-[#F5E6DA]'
+                            ? 'bg-[#1d56af] text-white'
+                            : isDarkMode
+                            ? 'bg-slate-700 text-slate-300 group-hover:text-white'
+                            : 'bg-[#e8edf2] text-slate-600 group-hover:text-slate-900'
                         }`}
                       >
                         <Icon className="w-4 h-4" />
@@ -480,12 +658,16 @@ export default function Main() {
                               if (e.key === 'Escape') setEditingModelId(null);
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full bg-[#1A1010] border border-[#A67C52] rounded-lg px-2 py-0.5 text-xs text-[#F5E6DA] outline-none"
+                            className={`w-full rounded-lg px-2 py-0.5 text-xs outline-none border ${
+                              isDarkMode
+                                ? 'bg-slate-950 border-blue-500 text-white'
+                                : 'bg-white border-[#1d56af] text-slate-900'
+                            }`}
                           />
                         ) : (
                           <div
                             onDoubleClick={(e) => handleStartRename(model, e)}
-                            className="font-semibold text-xs sm:text-sm truncate cursor-pointer"
+                            className="font-medium text-xs sm:text-sm truncate cursor-pointer"
                             title="Clique duas vezes ou use o lápis para renomear"
                           >
                             {model.name}
@@ -499,7 +681,11 @@ export default function Main() {
                             type="button"
                             onClick={(e) => handleStartRename(model, e)}
                             title="Renomear modelo"
-                            className="opacity-0 group-hover:opacity-100 p-1 text-[#6D5A5A] hover:text-[#F5E6DA] hover:bg-[#251818] rounded-md transition-opacity cursor-pointer"
+                            className={`opacity-0 group-hover:opacity-100 p-1 rounded-md transition-opacity cursor-pointer ${
+                              isDarkMode
+                                ? 'text-slate-400 hover:text-white hover:bg-slate-700'
+                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                            }`}
                           >
                             <Pencil className="w-3 h-3" />
                           </button>
@@ -510,10 +696,28 @@ export default function Main() {
                             type="button"
                             onClick={(e) => handleRemoveModel(model.id, e)}
                             title="Excluir este modelo"
-                            className="opacity-0 group-hover:opacity-100 p-1 text-[#6D5A5A] hover:text-red-400 hover:bg-[#251818] rounded-md transition-opacity cursor-pointer"
+                            className={`opacity-0 group-hover:opacity-100 p-1 rounded-md transition-opacity cursor-pointer ${
+                              isDarkMode
+                                ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-700'
+                                : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                            }`}
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
+                        )}
+
+                        {/* Indicador de Pomodoro rodando em segundo plano */}
+                        {model.type === 'pomodoro' && pomodoroTickers[model.id]?.isRunning && (
+                          <div
+                            className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold shrink-0"
+                            title="Pomodoro em andamento"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                            <span>
+                              {String(Math.floor((pomodoroTickers[model.id].remainingSeconds || 0) / 60)).padStart(2, '0')}:
+                              {String((pomodoroTickers[model.id].remainingSeconds || 0) % 60).padStart(2, '0')}
+                            </span>
+                          </div>
                         )}
 
                         {hasTasksForToday && (
@@ -521,9 +725,9 @@ export default function Main() {
                             className="flex items-center gap-1.5 shrink-0 pl-0.5"
                             title={`${todayCount} tarefa(s) para hoje`}
                           >
-                            <span className="relative flex h-2.5 w-2.5">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 ring-2 ring-[#251818]"></span>
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#528fd8] opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#1d56af]"></span>
                             </span>
                           </div>
                         )}
@@ -536,43 +740,80 @@ export default function Main() {
           </div>
         </aside>
 
-        <main className="flex-1 bg-[#1E1414] p-0 flex flex-col overflow-hidden min-h-0">
+        {/* Central Content Area */}
+        <main
+          className={`flex-1 p-0 flex flex-col overflow-hidden min-h-0 transition-colors ${
+            isDarkMode ? 'bg-slate-950' : 'bg-[#ebf0f5]'
+          }`}
+        >
           <div className="w-full h-full flex-1 flex flex-col min-h-0">
             {activeModel?.type === 'routine' && (
-              <Routine modelInstance={activeModel} />
+              <Routine modelInstance={activeModel} isDarkMode={isDarkMode} />
             )}
             {activeModel?.type === 'calendario' && (
-              <Calendar modelInstance={activeModel} />
+              <Calendar modelInstance={activeModel} isDarkMode={isDarkMode} />
             )}
             {activeModel?.type === 'pomodoro' && (
-              <Pomodoro modelInstance={activeModel} />
+              <Pomodoro modelInstance={activeModel} isDarkMode={isDarkMode} />
             )}
             {activeModel?.type === 'brain-dump' && (
-              <BrainDump modelInstance={activeModel} />
+              <BrainDump modelInstance={activeModel} isDarkMode={isDarkMode} />
             )}
           </div>
         </main>
       </div>
 
+      {/* Floating Add Task Button (+) */}
       <button
         type="button"
         onClick={() => setIsOverlayOpen(true)}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 w-12 h-12 rounded-full bg-[#800020] hover:bg-[#A00028] text-[#F5E6DA] shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 cursor-pointer ring-2 ring-[#A67C52]/50 border border-[#800020]"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 w-12 h-12 rounded-full bg-[#1d56af] hover:bg-[#16438a] text-white shadow-xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer ring-4 ring-[#1d56af]/25"
         title="Adicionar nova tarefa (+)"
       >
         <Plus className="w-6 h-6 stroke-[2.5]" />
       </button>
 
+      {/* Full Screen Slide-over / Modal for Adding Tasks */}
       <FullScreenOverlay
         isOpen={isOverlayOpen}
         onClose={() => setIsOverlayOpen(false)}
         onTaskCreated={handleTaskCreated}
         availableModels={userModels}
+        initialModelId={activeModelId}
+        isDarkMode={isDarkMode}
       />
 
+      {/* Add Model Instance Modal */}
+      <AddModelModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAddModel={handleDirectAddModel}
+        existingModels={userModels}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Timezone Settings & User Profile Modal */}
+      <TimezoneSettingsModal
+        isOpen={isTimezoneModalOpen}
+        onClose={() => setIsTimezoneModalOpen(false)}
+        isDarkMode={isDarkMode}
+        onTimezoneChanged={(tz) => {
+          setCurrentTimezone(tz);
+          fetchTodayCounts();
+          showToast(`Fuso horário atualizado para ${tz}`);
+        }}
+      />
+
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-16 right-5 z-50 bg-[#2D1F1F] border border-[#800020] text-[#F5E6DA] px-4 py-3 rounded-2xl shadow-2xl text-xs sm:text-sm font-semibold flex items-center gap-2.5 animate-in slide-in-from-top duration-200">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></span>
+        <div
+          className={`fixed top-16 right-5 z-50 px-4 py-3 rounded-xl border shadow-xl text-xs sm:text-sm font-semibold flex items-center gap-2.5 animate-in slide-in-from-top duration-200 ${
+            isDarkMode
+              ? 'bg-slate-800 border-slate-700 text-slate-100'
+              : 'bg-[#f4f7fa] border-[#d3dce6] text-slate-900'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
           <span>{toastMessage}</span>
         </div>
       )}

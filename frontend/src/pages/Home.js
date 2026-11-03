@@ -34,7 +34,7 @@ export default function Home() {
 
   return (
     <div>
-      <main className="min-h-screen bg-[#1E1414] text-[#F5E6DA] selection:bg-[#800020] selection:text-[#F5E6DA] font-sans antialiased">
+      <main className="min-h-screen bg-[#ebf0f5] text-slate-800 selection:bg-[#1d56af] selection:text-white font-sans antialiased">
         <Intro
           onScrollToSimulator={scrollToSimulator}
         />

@@ -1,0 +1,70 @@
+{
+  "tasks": [
+    {
+      "id": "task-1793666196835",
+      "id_account": 1,
+      "name": "Tarefa Teste Fuso",
+      "description": "",
+      "notes": "",
+      "modelId": "routine",
+      "modelIds": [
+        "routine"
+      ],
+      "date": "2026-11-03",
+      "startTime": "14:00",
+      "endTime": "15:00",
+      "recurrence": "none",
+      "done": false,
+      "createdAt": "2026-11-03T00:36:36.835Z"
+    },
+    {
+      "id": "task-init-1",
+      "id_account": 1,
+      "name": "Revisar metas diárias",
+      "description": "Planejar as prioridades do dia",
+      "modelId": "routine",
+      "modelIds": [
+        "routine"
+      ],
+      "date": "2026-10-30",
+      "startTime": "09:00",
+      "endTime": "09:30",
+      "recurrence": "daily",
+      "done": false,
+      "createdAt": "2026-10-30T13:14:06.452Z"
+    },
+    {
+      "id": "task-init-2",
+      "id_account": 1,
+      "name": "Sessão de foco profundo",
+      "description": "Trabalhar no módulo principal do FocusMod",
+      "modelId": "routine",
+      "modelIds": [
+        "routine"
+      ],
+      "date": "2026-10-30",
+      "startTime": "10:00",
+      "endTime": "11:00",
+      "recurrence": "none",
+      "done": false,
+      "createdAt": "2026-10-30T13:14:06.452Z"
+    },
+    {
+      "id": "task-init-3",
+      "id_account": 1,
+      "name": "Ideias de novos temas suaves",
+      "description": "Testar variações de azul safira e fundo off-white",
+      "modelId": "brain-dump",
+      "modelIds": [
+        "brain-dump"
+      ],
+      "date": null,
+      "startTime": null,
+      "endTime": null,
+      "recurrence": "none",
+      "done": false,
+      "createdAt": "2026-10-30T13:14:06.452Z"
+    }
+  ],
+  "completions": []
+}

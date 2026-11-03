@@ -1,8 +1,8 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../database/sequelize.js';
 
-export const Task_Model = sequelize.define('Task_Model', {
-  id_task_model: {
+export const TaskCompletion = sequelize.define('TaskCompletion', {
+  id_completion: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
@@ -17,17 +17,33 @@ export const Task_Model = sequelize.define('Task_Model', {
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE'
   },
-  id_model: {
+  id_account: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Model',
-      key: 'id_model'
+      model: 'Account',
+      key: 'id_account'
     },
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE'
+  },
+  date: {
+    type: DataTypes.DATEONLY,
+    allowNull: false
+  },
+  completed: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   }
 }, {
-  tableName: 'Task_Model',
-  timestamps: false
+  tableName: 'TaskCompletion',
+  timestamps: true,
+  indexes: [
+    {
+      unique: true,
+      fields: ['id_task', 'date']
+    }
+  ]
 });
+
+export default TaskCompletion;

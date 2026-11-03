@@ -6,6 +6,11 @@ export async function up(queryInterface, Sequelize) {
       autoIncrement: true,
       allowNull: false
     },
+    username: {
+      type: Sequelize.STRING,
+      allowNull: false,
+      unique: true
+    },
     email: {
       type: Sequelize.STRING,
       allowNull: false,
