@@ -1,22 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Clock,
-  CalendarDays,
-  Hourglass,
-  Brain,
-  Plus,
-  LogOut,
-  Layers,
-  Trash2,
-  Pencil,
-  Loader2,
-  Sun,
-  Moon,
-} from 'lucide-react';
 import Pomodoro from '../components/ModelsUi/Pomodoro.js';
 import Calendar from '../components/ModelsUi/Calendar.js';
 import Routine from '../components/ModelsUi/Routine.js';
 import BrainDump from '../components/ModelsUi/BrainDump.js';
+import Microtasks from '../components/ModelsUi/Microtasks.jsx';
+import KanbanBoard from '../components/ModelsUi/KanbanBoard.jsx';
+import PriorityMatrix from '../components/ModelsUi/PriorityMatrix.jsx';
+import HabitTracker from '../components/ModelsUi/HabitTracker.jsx';
+import DailyRoutines from '../components/ModelsUi/DailyRoutines.jsx';
 import FullScreenOverlay from '../components/ScreenOverlay.js';
 import AddModelModal from '../components/AddModelModal.js';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +19,24 @@ import {
   getDetectedBrowserTimezone,
 } from '../utils/date.js';
 import { initGlobalPomodoroTicker } from '../utils/pomodoroManager.js';
+import {
+  Clock,
+  CalendarDays,
+  Hourglass,
+  Brain,
+  ListChecks,
+  Columns,
+  Grid2X2,
+  Flame,
+  Plus,
+  LogOut,
+  Layers,
+  Trash2,
+  Pencil,
+  Loader2,
+  Sun,
+  Moon,
+} from 'lucide-react';
 
 export const MODEL_TEMPLATES = [
   {
@@ -54,6 +63,36 @@ export const MODEL_TEMPLATES = [
     icon: Brain,
     color: 'text-amber-600',
   },
+  {
+    type: 'microtasks',
+    defaultName: 'Microtarefas',
+    icon: ListChecks,
+    color: 'text-emerald-600',
+  },
+  {
+    type: 'kanban',
+    defaultName: 'Kanban',
+    icon: Columns,
+    color: 'text-indigo-600',
+  },
+  {
+    type: 'priority-matrix',
+    defaultName: 'Matriz de Prioridades',
+    icon: Grid2X2,
+    color: 'text-violet-600',
+  },
+  {
+    type: 'habits',
+    defaultName: 'Rastreador de Hábitos',
+    icon: Flame,
+    color: 'text-emerald-500',
+  },
+  {
+    type: 'daily-routines',
+    defaultName: 'Rotinas Diárias',
+    icon: Sun,
+    color: 'text-amber-500',
+  },
 ];
 
 const DEFAULT_MODELS = [
@@ -61,6 +100,11 @@ const DEFAULT_MODELS = [
   { id: 'mod-calendario-1', type: 'calendario', name: 'Calendário' },
   { id: 'mod-pomodoro-1', type: 'pomodoro', name: 'Pomodoro' },
   { id: 'mod-braindump-1', type: 'brain-dump', name: 'Brain Dump' },
+  { id: 'mod-microtasks-1', type: 'microtasks', name: 'Microtarefas' },
+  { id: 'mod-kanban-1', type: 'kanban', name: 'Kanban' },
+  { id: 'mod-matrix-1', type: 'priority-matrix', name: 'Matriz de Prioridades' },
+  { id: 'mod-habits-1', type: 'habits', name: 'Rastreador de Hábitos' },
+  { id: 'mod-dailyroutines-1', type: 'daily-routines', name: 'Rotinas Diárias' },
 ];
 
 function getInfoFromToken() {
@@ -100,6 +144,16 @@ export function getModelIcon(type) {
       return Hourglass;
     case 'brain-dump':
       return Brain;
+    case 'microtasks':
+      return ListChecks;
+    case 'kanban':
+      return Columns;
+    case 'priority-matrix':
+      return Grid2X2;
+    case 'habits':
+      return Flame;
+    case 'daily-routines':
+      return Sun;
     case 'routine':
     default:
       return Clock;
@@ -276,7 +330,7 @@ export default function Main() {
     };
   }, [fetchTodayCounts]);
 
-  const persistModelsToBackend = async (newModelsList, successMessage = '') => {
+  const persistModelsToBackend = async (newModelsList, successMessage = '', keepActiveIndex = null) => {
     try {
       const res = await apiFetch('/api/user/models', {
         method: 'PUT',
@@ -285,7 +339,24 @@ export default function Main() {
       });
       if (res.ok) {
         const data = await res.json();
-        setUserModels(data.models || newModelsList);
+        const savedList = data.models || newModelsList;
+        setUserModels(savedList);
+        if (keepActiveIndex !== null && savedList[keepActiveIndex]) {
+          setActiveModelId(savedList[keepActiveIndex].id);
+        } else {
+          setActiveModelId((curr) => {
+            const exists = savedList.some((m) => m.id === curr);
+            if (exists) return curr;
+            const currModel = newModelsList.find((m) => m.id === curr);
+            if (currModel) {
+              const matched = savedList.find(
+                (m) => m.name === currModel.name && m.type === currModel.type
+              );
+              if (matched) return matched.id;
+            }
+            return savedList[0]?.id || curr;
+          });
+        }
         if (successMessage) {
           showToast(successMessage);
         }
@@ -313,7 +384,8 @@ export default function Main() {
 
     await persistModelsToBackend(
       updated,
-      `Modelo "${uniqueName}" adicionado e salvo!`
+      `Modelo "${uniqueName}" adicionado e salvo!`,
+      updated.length - 1
     );
   };
 
@@ -716,6 +788,21 @@ export default function Main() {
             )}
             {activeModel?.type === 'brain-dump' && (
               <BrainDump modelInstance={activeModel} isDarkMode={isDarkMode} />
+            )}
+            {activeModel?.type === 'microtasks' && (
+              <Microtasks modelInstance={activeModel} isDarkMode={isDarkMode} />
+            )}
+            {activeModel?.type === 'kanban' && (
+              <KanbanBoard modelInstance={activeModel} isDarkMode={isDarkMode} />
+            )}
+            {activeModel?.type === 'priority-matrix' && (
+              <PriorityMatrix modelInstance={activeModel} isDarkMode={isDarkMode} />
+            )}
+            {activeModel?.type === 'habits' && (
+              <HabitTracker modelInstance={activeModel} isDarkMode={isDarkMode} />
+            )}
+            {activeModel?.type === 'daily-routines' && (
+              <DailyRoutines modelInstance={activeModel} isDarkMode={isDarkMode} />
             )}
           </div>
         </main>

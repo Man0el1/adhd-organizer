@@ -4,7 +4,18 @@ const route = express.Router();
 
 import { accountExists } from './controllers/loginController.js';
 import { createAccount } from './controllers/registerController.js';
-import { getTasks, getTodayCounts, createTask, deleteTask, updateTask, toggleTask, completeTask } from './controllers/taskController.js';
+import {
+  getTasks,
+  getTodayCounts,
+  createTask,
+  deleteTask,
+  updateTask,
+  toggleTask,
+  completeTask,
+  createSubtask,
+  updateSubtask,
+  deleteSubtask,
+} from './controllers/taskController.js';
 import { getUserModels, updateUserModels } from './controllers/userModelController.js';
 import { getUserProfile, updateUserTimezone, updateUserProfile } from './controllers/userProfileController.js';
 
@@ -32,6 +43,12 @@ route.patch('/api/tasks/:id/toggle', checkToken, toggleTask);
 route.put('/api/tasks/:id/toggle', checkToken, toggleTask);
 route.patch('/api/tasks/:id/complete', checkToken, completeTask);
 route.put('/api/tasks/:id/complete', checkToken, completeTask);
+
+// Subtask routes (rotas protegidas com checkToken)
+route.post('/api/tasks/:id/subtasks', checkToken, createSubtask);
+route.put('/api/tasks/subtasks/:subtaskId', checkToken, updateSubtask);
+route.patch('/api/tasks/subtasks/:subtaskId', checkToken, updateSubtask);
+route.delete('/api/tasks/subtasks/:subtaskId', checkToken, deleteSubtask);
 
 
 // User models preference routes (rotas protegidas com checkToken)

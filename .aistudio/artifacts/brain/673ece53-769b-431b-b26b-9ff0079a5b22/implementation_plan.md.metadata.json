@@ -1,0 +1,6 @@
+{
+  "summary": "Plano revisado com colunas fixas no Kanban, eliminação de redundância na Matriz (armazenando apenas urgency e importance), flexibilidade em Microtarefas (tarefas sem subtarefas permitidas), regra estrita de sincronização entre Task.done e coluna do Kanban, e preservação do padrão existente no fallback em memória.",
+  "updatedAt": "2026-11-03T15:38:57.748675053Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

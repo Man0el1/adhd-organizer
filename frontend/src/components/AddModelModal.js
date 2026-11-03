@@ -6,6 +6,11 @@ import {
   CalendarDays,
   Hourglass,
   Brain,
+  ListChecks,
+  Columns,
+  Grid2X2,
+  Flame,
+  Sun,
 } from 'lucide-react';
 
 export const MODAL_MODEL_OPTIONS = [
@@ -48,6 +53,56 @@ export const MODAL_MODEL_OPTIONS = [
     videoSrc: '/videos/intro.mp4',
     description:
       'Captura rápida para despejar pensamentos, ideias soltas e tarefas imediatas sem a necessidade de agendar datas.',
+  },
+  {
+    type: 'microtasks',
+    name: 'Microtarefas',
+    subtitle: 'Divisão em subtarefas',
+    icon: ListChecks,
+    color: 'text-emerald-600',
+    videoSrc: '/videos/intro.mp4',
+    description:
+      'Divida tarefas complexas em subtarefas menores e acompanhe a conclusão individual de cada etapa.',
+  },
+  {
+    type: 'kanban',
+    name: 'Kanban',
+    subtitle: 'Quadro em 3 colunas',
+    icon: Columns,
+    color: 'text-indigo-600',
+    videoSrc: '/videos/intro.mp4',
+    description:
+      'Organize suas tarefas em três colunas (A Fazer, Em Progresso e Concluído) e movimente os cartões conforme avança.',
+  },
+  {
+    type: 'priority-matrix',
+    name: 'Matriz de Prioridades',
+    subtitle: 'Matriz de Eisenhower',
+    icon: Grid2X2,
+    color: 'text-violet-600',
+    videoSrc: '/videos/intro.mp4',
+    description:
+      'Organize tarefas com base em importância e urgência, calculando os quatro quadrantes para orientar as decisões.',
+  },
+  {
+    type: 'habits',
+    name: 'Rastreador de Hábitos',
+    subtitle: 'Frequência e histórico',
+    icon: Flame,
+    color: 'text-emerald-500',
+    videoSrc: '/videos/intro.mp4',
+    description:
+      'Cadastre hábitos, defina metas de frequência e registre conclusões por dia, mantendo histórico e sequência.',
+  },
+  {
+    type: 'daily-routines',
+    name: 'Rotinas Diárias',
+    subtitle: 'Manhã, tarde e noite',
+    icon: Sun,
+    color: 'text-amber-500',
+    videoSrc: '/videos/intro.mp4',
+    description:
+      'Crie sequências de atividades para diferentes períodos do dia, com checklist diário e progresso por período.',
   },
 ];
 

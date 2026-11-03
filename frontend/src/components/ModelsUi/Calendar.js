@@ -26,6 +26,7 @@ import {
   getTimezoneNowParts,
   addDaysToYMD,
 } from '../../utils/date.js';
+import TaskFormModal from '../task-form/TaskFormModal.jsx';
 
 const HOUR_HEIGHT = 68; // altura de cada hora na linha do tempo em pixels
 const START_HOUR = 0;  // início da linha do tempo às 00:00 (cobre todas as 24 horas)
@@ -207,18 +208,12 @@ export default function Calendar({ modelInstance, isDarkMode = false }) {
   const [rawTasks, setRawTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Modal para criar / editar evento
+  // Modal unificado para criar / editar evento
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState(null); // null = criar novo; objeto = editar
-  const [formName, setFormName] = useState('');
-  const [formDescription, setFormDescription] = useState('');
-  const [formDate, setFormDate] = useState(todayStr);
-  const [formHasTime, setFormHasTime] = useState(true);
-  const [formStartTime, setFormStartTime] = useState('09:00');
-  const [formEndTime, setFormEndTime] = useState('10:00');
-  const [formRecurrence, setFormRecurrence] = useState('none');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState('');
+  const [editingTask, setEditingTask] = useState(null);
+  const [modalInitialDate, setModalInitialDate] = useState(todayStr);
+  const [modalInitialStartTime, setModalInitialStartTime] = useState('09:00');
+  const [modalInitialEndTime, setModalInitialEndTime] = useState('10:00');
 
   // Minuto atual para a linha "Agora" em tempo real no fuso configurado
   const [currentMinutesNow, setCurrentMinutesNow] = useState(() => {
@@ -398,7 +393,11 @@ export default function Calendar({ modelInstance, isDarkMode = false }) {
     if (e) e.stopPropagation();
     try {
       setRawTasks((prev) => prev.filter((t) => t.id !== id));
-      await apiFetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        fetchTasks();
+        return;
+      }
       window.dispatchEvent(new CustomEvent('focusmod_task_updated', { detail: { id, deleted: true } }));
     } catch (err) {
       console.error('Erro ao excluir tarefa:', err);
@@ -409,22 +408,16 @@ export default function Calendar({ modelInstance, isDarkMode = false }) {
   // Abre modal para criação com data/horário predefinidos
   const handleOpenCreateModal = (suggestedHour = null) => {
     setEditingTask(null);
-    setFormName('');
-    setFormDescription('');
-    setFormDate(selectedDayStr);
+    setModalInitialDate(selectedDayStr);
     if (suggestedHour !== null) {
-      setFormHasTime(true);
       const hStr = String(suggestedHour).padStart(2, '0') + ':00';
       const endHStr = String(Math.min(23, suggestedHour + 1)).padStart(2, '0') + ':00';
-      setFormStartTime(hStr);
-      setFormEndTime(endHStr);
+      setModalInitialStartTime(hStr);
+      setModalInitialEndTime(endHStr);
     } else {
-      setFormHasTime(true);
-      setFormStartTime('09:00');
-      setFormEndTime('10:00');
+      setModalInitialStartTime('09:00');
+      setModalInitialEndTime('10:00');
     }
-    setFormRecurrence('none');
-    setFormError('');
     setIsModalOpen(true);
   };
 
@@ -432,97 +425,7 @@ export default function Calendar({ modelInstance, isDarkMode = false }) {
   const handleOpenEditModal = (task, e) => {
     if (e) e.stopPropagation();
     setEditingTask(task);
-    setFormName(task.name || '');
-    setFormDescription(task.description || task.notes || '');
-    setFormDate(task.date || selectedDayStr);
-    setFormHasTime(Boolean(task.startTime));
-    setFormStartTime(task.startTime || '09:00');
-    setFormEndTime(task.endTime || '10:00');
-    setFormRecurrence(task.recurrence || 'none');
-    setFormError('');
     setIsModalOpen(true);
-  };
-
-  // Submissão do modal (Criar ou Editar)
-  const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    if (!formName.trim()) {
-      setFormError('Informe o título do evento.');
-      return;
-    }
-    if (!formDate) {
-      setFormError('Informe a data do evento.');
-      return;
-    }
-
-    let finalEndTime = formEndTime;
-    if (formHasTime && formStartTime && formEndTime && formStartTime >= formEndTime) {
-      const [h, m] = formStartTime.split(':').map(Number);
-      const nextMins = h * 60 + m + 30;
-      finalEndTime = minutesToTime(nextMins);
-    }
-
-    setIsSubmitting(true);
-    setFormError('');
-
-    try {
-      if (editingTask) {
-        // Atualização via PUT
-        const payload = {
-          name: formName.trim(),
-          description: formDescription.trim(),
-          notes: formDescription.trim(),
-          date: formDate,
-          startTime: formHasTime ? formStartTime : null,
-          endTime: formHasTime ? finalEndTime : null,
-          recurrence: formRecurrence,
-        };
-
-        const res = await apiFetch(`/api/tasks/${editingTask.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) throw new Error('Falha ao atualizar evento');
-
-        window.dispatchEvent(
-          new CustomEvent('focusmod_task_updated', { detail: { id: editingTask.id } })
-        );
-      } else {
-        // Criação via POST
-        const payload = {
-          name: formName.trim(),
-          description: formDescription.trim(),
-          notes: formDescription.trim(),
-          modelId,
-          modelType: 'calendario',
-          date: formDate,
-          startTime: formHasTime ? formStartTime : null,
-          endTime: formHasTime ? finalEndTime : null,
-          recurrence: formRecurrence,
-        };
-
-        const res = await apiFetch('/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) throw new Error('Falha ao criar evento');
-
-        window.dispatchEvent(
-          new CustomEvent('focusmod_task_created', { detail: { date: formDate } })
-        );
-      }
-
-      setIsModalOpen(false);
-      fetchTasks();
-    } catch (err) {
-      setFormError(err.message || 'Erro ao processar evento.');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   // Navegação entre dias
@@ -1423,218 +1326,22 @@ export default function Calendar({ modelInstance, isDarkMode = false }) {
         )}
       </div>
 
-      {/* Modal Unificado de Criação e Edição de Evento */}
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-[2px] animate-in fade-in duration-150"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsModalOpen(false);
-          }}
-        >
-          <div
-            className={`w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-4 sm:p-6 shadow-2xl border transition-all ${
-              isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-[#d3dce6] text-slate-900'
-            }`}
-          >
-            <div className="flex items-center justify-between border-b pb-3 mb-4 dark:border-slate-800 border-[#d3dce6]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#1d56af] flex items-center justify-center text-white">
-                  {editingTask ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                </div>
-                <h3 className="font-bold text-base">
-                  {editingTask ? 'Editar Evento do Calendário' : 'Novo Evento no Calendário'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {formError && (
-              <div className="mb-4 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-semibold">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleFormSubmit} className="space-y-3.5">
-              {/* Título do Evento */}
-              <div>
-                <label className="block text-xs font-bold mb-1 uppercase tracking-wider text-slate-500">
-                  Título do Evento *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="Ex: Consulta médica, Aula, Reunião de equipe..."
-                  className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition-colors ${
-                    isDarkMode
-                      ? 'bg-slate-950 border-slate-800 text-slate-100 focus:border-[#1d56af]'
-                      : 'bg-[#f4f7fa] border-[#d3dce6] text-slate-900 focus:border-[#1d56af] focus:bg-white'
-                  }`}
-                />
-              </div>
-
-              {/* Data do Evento */}
-              <div>
-                <label className="block text-xs font-bold mb-1 uppercase tracking-wider text-slate-500">
-                  Data *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border outline-none font-mono ${
-                    isDarkMode
-                      ? 'bg-slate-950 border-slate-800 text-slate-100 focus:border-[#1d56af]'
-                      : 'bg-[#f4f7fa] border-[#d3dce6] text-slate-900 focus:border-[#1d56af] focus:bg-white'
-                  }`}
-                />
-              </div>
-
-              {/* Checkbox Horário Marcado vs Dia Todo */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="hasTimeCheck"
-                  checked={formHasTime}
-                  onChange={(e) => setFormHasTime(e.target.checked)}
-                  className="rounded text-[#1d56af] focus:ring-0 cursor-pointer"
-                />
-                <label htmlFor="hasTimeCheck" className="text-xs font-semibold cursor-pointer">
-                  Definir horários específicos na linha do tempo
-                </label>
-              </div>
-
-              {/* Horários Início e Término */}
-              {formHasTime && (
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="block text-[11px] font-bold mb-1 uppercase tracking-wider text-slate-500">
-                      Início
-                    </label>
-                    <input
-                      type="time"
-                      value={formStartTime}
-                      onChange={(e) => setFormStartTime(e.target.value)}
-                      className={`w-full px-3 py-2 rounded-xl text-xs font-mono border outline-none ${
-                        isDarkMode
-                          ? 'bg-slate-950 border-slate-800 text-slate-100'
-                          : 'bg-[#f4f7fa] border-[#d3dce6] text-slate-900'
-                      }`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold mb-1 uppercase tracking-wider text-slate-500">
-                      Término
-                    </label>
-                    <input
-                      type="time"
-                      value={formEndTime}
-                      onChange={(e) => setFormEndTime(e.target.value)}
-                      className={`w-full px-3 py-2 rounded-xl text-xs font-mono border outline-none ${
-                        isDarkMode
-                          ? 'bg-slate-950 border-slate-800 text-slate-100'
-                          : 'bg-[#f4f7fa] border-[#d3dce6] text-slate-900'
-                      }`}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Recorrência */}
-              <div>
-                <label className="block text-xs font-bold mb-1 uppercase tracking-wider text-slate-500">
-                  Repetição
-                </label>
-                <select
-                  value={formRecurrence}
-                  onChange={(e) => setFormRecurrence(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border outline-none cursor-pointer ${
-                    isDarkMode
-                      ? 'bg-slate-950 border-slate-800 text-slate-100'
-                      : 'bg-[#f4f7fa] border-[#d3dce6] text-slate-900'
-                  }`}
-                >
-                  <option value="none">Não se repete</option>
-                  <option value="daily">Repete todos os dias (Diária)</option>
-                  <option value="weekly">Repete semanalmente (Semanal)</option>
-                  <option value="monthly">Repete mensalmente (Mensal)</option>
-                  <option value="yearly">Repete anualmente (Anual)</option>
-                </select>
-              </div>
-
-              {/* Descrição / Notas */}
-              <div>
-                <label className="block text-xs font-bold mb-1 uppercase tracking-wider text-slate-500">
-                  Descrição ou Notas (Opcional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Detalhes adicionais, link da chamada, observações..."
-                  className={`w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm border outline-none resize-none ${
-                    isDarkMode
-                      ? 'bg-slate-950 border-slate-800 text-slate-100'
-                      : 'bg-[#f4f7fa] border-[#d3dce6] text-slate-900'
-                  }`}
-                />
-              </div>
-
-              {/* Botões do Rodapé do Modal */}
-              <div className="flex items-center justify-between gap-2.5 pt-3 border-t dark:border-slate-800 border-[#d3dce6]">
-                {editingTask ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      setIsModalOpen(false);
-                      handleDeleteTask(editingTask.id, e);
-                    }}
-                    className="px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition-colors cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Excluir</span>
-                  </button>
-                ) : (
-                  <div />
-                )}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
-                      isDarkMode
-                        ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
-                        : 'bg-white hover:bg-slate-100 border-[#d3dce6] text-slate-700'
-                    }`}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-4 sm:px-5 py-2 rounded-xl text-xs font-bold bg-[#1d56af] hover:bg-[#16438a] text-white shadow-xs transition-transform active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Check className="w-3.5 h-3.5" />
-                    )}
-                    <span>{editingTask ? 'Salvar' : 'Criar Evento'}</span>
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modal Unificado de Criação e Edição (TaskFormModal) */}
+      <TaskFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onTaskSaved={() => {
+          fetchTasks();
+          setIsModalOpen(false);
+        }}
+        initialModelId={modelId}
+        lockModel={true}
+        initialDate={modalInitialDate}
+        initialStartTime={modalInitialStartTime}
+        initialEndTime={modalInitialEndTime}
+        editingTask={editingTask}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 }

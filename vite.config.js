@@ -11,7 +11,7 @@ export default defineConfig({
     {
       name: 'treat-js-files-as-jsx',
       async transform(code, id) {
-        if (!id.endsWith('.js') || !id.includes('/frontend/src/')) return null;
+        if (!/\.[jt]sx?$/.test(id) || !id.includes('/frontend/src/')) return null;
         return transformWithEsbuild(code, id, {
           loader: 'jsx',
           jsx: 'automatic',
@@ -22,12 +22,13 @@ export default defineConfig({
   ],
   esbuild: {
     loader: 'jsx',
-    include: /frontend\/src\/.*\.js$/,
+    include: /frontend\/src\/.*\.[jt]sx?$/,
   },
   optimizeDeps: {
     esbuildOptions: {
       loader: {
         '.js': 'jsx',
+        '.jsx': 'jsx',
       },
     },
   },

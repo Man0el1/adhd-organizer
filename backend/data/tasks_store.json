@@ -1,6 +1,200 @@
 {
   "tasks": [
     {
+      "id": "task-1793741592719",
+      "id_account": 1,
+      "name": "Alongamento matinal",
+      "description": "5 minutos de respiração e alongamento",
+      "notes": "5 minutos de respiração e alongamento",
+      "modelId": "daily-routines",
+      "modelIds": [
+        "daily-routines"
+      ],
+      "date": null,
+      "startTime": null,
+      "endTime": null,
+      "recurrence": "none",
+      "done": false,
+      "kanban": null,
+      "matrix": null,
+      "habit": null,
+      "dailyRoutine": {
+        "period": "morning",
+        "order_index": 0
+      },
+      "subtasks": [],
+      "createdAt": "2026-11-03T21:33:12.719Z"
+    },
+    {
+      "id": "task-1793741584488",
+      "id_account": 1,
+      "name": "Beber 2L de água",
+      "description": "Manter hidratação ao longo do dia",
+      "notes": "Manter hidratação ao longo do dia",
+      "modelId": "habits",
+      "modelIds": [
+        "habits"
+      ],
+      "date": "2026-11-03",
+      "startTime": null,
+      "endTime": null,
+      "recurrence": "none",
+      "done": false,
+      "kanban": null,
+      "matrix": null,
+      "habit": {
+        "frequency": "daily",
+        "target_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "color": "#10b981"
+      },
+      "dailyRoutine": null,
+      "subtasks": [],
+      "createdAt": "2026-11-03T21:33:04.488Z"
+    },
+    {
+      "id": "task-1793721431339",
+      "id_account": 1,
+      "name": "Tarefa Teste Subtarefas",
+      "description": "",
+      "notes": "",
+      "modelId": "microtasks",
+      "modelIds": [
+        "microtasks"
+      ],
+      "date": null,
+      "startTime": null,
+      "endTime": null,
+      "recurrence": "none",
+      "done": false,
+      "kanban": null,
+      "matrix": null,
+      "subtasks": [],
+      "createdAt": "2026-11-03T15:57:11.339Z"
+    },
+    {
+      "id": "task-1793721417003",
+      "id_account": 1,
+      "name": "Corrigir bug crítico de entrega",
+      "description": "",
+      "notes": "",
+      "modelId": "priority-matrix",
+      "modelIds": [
+        "priority-matrix"
+      ],
+      "date": null,
+      "startTime": null,
+      "endTime": null,
+      "recurrence": "none",
+      "done": false,
+      "kanban": null,
+      "matrix": {
+        "urgency": true,
+        "importance": true
+      },
+      "subtasks": [],
+      "createdAt": "2026-11-03T15:56:57.003Z"
+    },
+    {
+      "id": "task-1793721416990",
+      "id_account": 1,
+      "name": "Implementar autenticação JWT",
+      "description": "",
+      "notes": "",
+      "modelId": "kanban",
+      "modelIds": [
+        "kanban"
+      ],
+      "date": null,
+      "startTime": null,
+      "endTime": null,
+      "recurrence": "none",
+      "done": true,
+      "kanban": {
+        "column_id": "done",
+        "order_index": 0
+      },
+      "matrix": null,
+      "subtasks": [],
+      "createdAt": "2026-11-03T15:56:56.990Z"
+    },
+    {
+      "id": "task-1793721416981",
+      "id_account": 1,
+      "name": "Criar documentação do TCC",
+      "description": "",
+      "notes": "",
+      "modelId": "microtasks",
+      "modelIds": [
+        "microtasks"
+      ],
+      "date": null,
+      "startTime": null,
+      "endTime": null,
+      "recurrence": "none",
+      "done": false,
+      "kanban": null,
+      "matrix": null,
+      "subtasks": [
+        {
+          "id": "subtask-1793721416981-0",
+          "id_subtask": 1793721416981,
+          "title": "Introdução",
+          "done": false,
+          "order_index": 0
+        },
+        {
+          "id": "subtask-1793721416981-1",
+          "id_subtask": 1793721416982,
+          "title": "Revisão bibliográfica",
+          "done": false,
+          "order_index": 1
+        }
+      ],
+      "createdAt": "2026-11-03T15:56:56.981Z"
+    },
+    {
+      "id": "task-1793712856024",
+      "id_account": 1,
+      "name": "Ideia de Brain Dump Sem Data",
+      "description": "Livre de agendamento",
+      "notes": "Livre de agendamento",
+      "modelId": "brain-dump",
+      "modelIds": [
+        "brain-dump"
+      ],
+      "date": null,
+      "startTime": null,
+      "endTime": null,
+      "recurrence": "none",
+      "done": false,
+      "createdAt": "2026-11-03T13:34:16.024Z"
+    },
+    {
+      "id": "task-1793712850542",
+      "id_account": 1,
+      "name": "Tarefa Teste Arquitetura",
+      "description": "Testando TaskSchedule e atomicidade",
+      "notes": "Testando TaskSchedule e atomicidade",
+      "modelId": "calendario",
+      "modelIds": [
+        "calendario"
+      ],
+      "date": "2026-11-03",
+      "startTime": "14:00",
+      "endTime": "15:00",
+      "recurrence": "none",
+      "done": false,
+      "createdAt": "2026-11-03T13:34:10.542Z"
+    },
+    {
       "id": "task-1793666196835",
       "id_account": 1,
       "name": "Tarefa Teste Fuso",
@@ -66,5 +260,22 @@
       "createdAt": "2026-10-30T13:14:06.452Z"
     }
   ],
-  "completions": []
+  "completions": [
+    {
+      "id_completion": 1793721416996,
+      "id_task": "task-1793721416990",
+      "id_account": 1,
+      "date": "2026-11-03",
+      "completed": true,
+      "createdAt": "2026-11-03T15:56:56.996Z"
+    },
+    {
+      "id_completion": 1793741588342,
+      "id_task": "task-1793741584488",
+      "id_account": 1,
+      "date": "2026-11-03",
+      "completed": true,
+      "createdAt": "2026-11-03T21:33:08.342Z"
+    }
+  ]
 }

@@ -62,4 +62,5 @@ export const isDatabaseConnected = async () => {
   return isConnected;
 };
 
+export { sequelize };
 export default sequelize;

@@ -35,24 +35,6 @@ export const Task = sequelize.define('Task', {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  date: {
-    type: DataTypes.DATEONLY,
-    allowNull: true
-  },
-  startTime: {
-    type: DataTypes.TIME,
-    allowNull: true,
-    field: 'start_time'
-  },
-  endTime: {
-    type: DataTypes.TIME,
-    allowNull: true,
-    field: 'end_time'
-  },
-  recurrence: {
-    type: DataTypes.STRING,
-    defaultValue: 'none' // 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
-  },
   done: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
@@ -61,3 +43,5 @@ export const Task = sequelize.define('Task', {
   tableName: 'Task',
   timestamps: true
 });
+
+export default Task;

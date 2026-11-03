@@ -1,6 +1,6 @@
 import { DataTypes } from 'sequelize';
 import sequelize, { isDatabaseConnected } from '../database/sequelize.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 // Modelo Sequelize oficial para a tabela Account
 export const Account = sequelize.define('Account', {

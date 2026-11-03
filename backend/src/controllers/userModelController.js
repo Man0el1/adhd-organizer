@@ -2,14 +2,43 @@ import { UserModel } from '../models/userModelModel.js';
 import { Model } from '../models/modelModel.js';
 import { isDatabaseConnected } from '../database/sequelize.js';
 
-export const VALID_TYPES = ['routine', 'calendario', 'pomodoro', 'brain-dump'];
+export const VALID_TYPES = [
+  'routine',
+  'calendario',
+  'pomodoro',
+  'brain-dump',
+  'microtasks',
+  'kanban',
+  'priority-matrix',
+  'habits',
+  'daily-routines',
+];
 
 export const DEFAULT_NAMES = {
   routine: 'Agenda Visual',
   calendario: 'Calendário',
   pomodoro: 'Pomodoro',
   'brain-dump': 'Brain Dump',
+  microtasks: 'Microtarefas',
+  kanban: 'Kanban',
+  'priority-matrix': 'Matriz de Prioridades',
+  habits: 'Rastreador de Hábitos',
+  'daily-routines': 'Rotinas Diárias',
 };
+
+export function inferModelType(type, name = '', id = '') {
+  if (type && VALID_TYPES.includes(type)) return type;
+  const str = `${type || ''} ${name || ''} ${id || ''}`.toLowerCase();
+  if (str.includes('habit') || str.includes('hábito')) return 'habits';
+  if (str.includes('rotina') || str.includes('daily-routine')) return 'daily-routines';
+  if (str.includes('micro')) return 'microtasks';
+  if (str.includes('kanban')) return 'kanban';
+  if (str.includes('matriz') || str.includes('priorit') || str.includes('matrix')) return 'priority-matrix';
+  if (str.includes('brain')) return 'brain-dump';
+  if (str.includes('cal')) return 'calendario';
+  if (str.includes('pomo')) return 'pomodoro';
+  return 'routine';
+}
 
 // Gera nomes com incremento no estilo Windows quando há duplicatas:
 // "Agenda Visual", "Agenda Visual (2)", "Agenda Visual (3)"
@@ -36,6 +65,11 @@ let userModelPreferences = {
     { id: 'mod-calendario-1', type: 'calendario', name: 'Calendário' },
     { id: 'mod-pomodoro-1', type: 'pomodoro', name: 'Pomodoro' },
     { id: 'mod-braindump-1', type: 'brain-dump', name: 'Brain Dump' },
+    { id: 'mod-microtasks-1', type: 'microtasks', name: 'Microtarefas' },
+    { id: 'mod-kanban-1', type: 'kanban', name: 'Kanban' },
+    { id: 'mod-matrix-1', type: 'priority-matrix', name: 'Matriz de Prioridades' },
+    { id: 'mod-habits-1', type: 'habits', name: 'Rastreador de Hábitos' },
+    { id: 'mod-dailyroutines-1', type: 'daily-routines', name: 'Rotinas Diárias' },
   ],
 };
 
@@ -44,6 +78,11 @@ const DEFAULT_MODELS_SEED = [
   { type: 'calendario', name: 'Calendário', order_index: 1 },
   { type: 'pomodoro', name: 'Pomodoro', order_index: 2 },
   { type: 'brain-dump', name: 'Brain Dump', order_index: 3 },
+  { type: 'microtasks', name: 'Microtarefas', order_index: 4 },
+  { type: 'kanban', name: 'Kanban', order_index: 5 },
+  { type: 'priority-matrix', name: 'Matriz de Prioridades', order_index: 6 },
+  { type: 'habits', name: 'Rastreador de Hábitos', order_index: 7 },
+  { type: 'daily-routines', name: 'Rotinas Diárias', order_index: 8 },
 ];
 
 export const getUserModels = async (req, res) => {
@@ -83,13 +122,16 @@ export const getUserModels = async (req, res) => {
         });
       }
 
-      const formatted = dbUserModels.map((m) => ({
-        id: `mod-${m.type}-${m.id_user_model}`,
-        dbId: m.id_user_model,
-        type: m.type,
-        name: m.name,
-        order_index: m.order_index,
-      }));
+      const formatted = dbUserModels.map((m) => {
+        const resolvedType = inferModelType(m.type, m.name, `mod-${m.type}-${m.id_user_model}`);
+        return {
+          id: `mod-${resolvedType}-${m.id_user_model}`,
+          dbId: m.id_user_model,
+          type: resolvedType,
+          name: m.name,
+          order_index: m.order_index,
+        };
+      });
 
       return res.status(200).json({
         models: formatted,
@@ -99,7 +141,14 @@ export const getUserModels = async (req, res) => {
 
     // Fallback em memória quando PostgreSQL não está configurado
     const key = String(accountId);
-    const models = userModelPreferences[key] || userModelPreferences['default'];
+    const rawModels = userModelPreferences[key] || userModelPreferences['default'];
+    const models = (rawModels || []).map((m) => {
+      const resolvedType = inferModelType(m.type, m.name, m.id);
+      return {
+        ...m,
+        type: resolvedType,
+      };
+    });
 
     return res.status(200).json({
       models,
@@ -122,7 +171,7 @@ export const updateUserModels = async (req, res) => {
     } else if (Array.isArray(selectedModelIds) && selectedModelIds.length > 0) {
       incomingList = selectedModelIds.map((item, index) => {
         if (typeof item === 'object' && item.type) return item;
-        const type = VALID_TYPES.includes(item) ? item : 'routine';
+        const type = inferModelType(item, '', `mod-${item}-${index + 1}`);
         return {
           id: `mod-${type}-${index + 1}`,
           type,
@@ -138,7 +187,7 @@ export const updateUserModels = async (req, res) => {
     // Normaliza, garante IDs únicos e aplica regra de nomes estilo Windows para duplicatas
     const normalizedList = [];
     for (const item of incomingList) {
-      const type = VALID_TYPES.includes(item.type) ? item.type : 'routine';
+      const type = inferModelType(item.type, item.name, item.id);
       const defaultName = DEFAULT_NAMES[type] || 'Modelo';
       const rawName = (item.name && item.name.trim()) ? item.name.trim() : defaultName;
       const id = item.id || `mod-${type}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
