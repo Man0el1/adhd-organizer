@@ -18,8 +18,8 @@ export async function checkToken(req, res, next) {
     }
 
     const userTimezone =
-      user.timezone ||
       req.headers['x-user-timezone'] ||
+      user.timezone ||
       decodedToken.timezone ||
       'America/Sao_Paulo';
 

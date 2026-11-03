@@ -12,7 +12,6 @@ import {
   Loader2,
   Sun,
   Moon,
-  Globe,
 } from 'lucide-react';
 import Pomodoro from '../components/ModelsUi/Pomodoro.js';
 import Calendar from '../components/ModelsUi/Calendar.js';
@@ -20,7 +19,6 @@ import Routine from '../components/ModelsUi/Routine.js';
 import BrainDump from '../components/ModelsUi/BrainDump.js';
 import FullScreenOverlay from '../components/ScreenOverlay.js';
 import AddModelModal from '../components/AddModelModal.js';
-import TimezoneSettingsModal from '../components/TimezoneSettingsModal.js';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../utils/api.js';
 import {
@@ -28,7 +26,6 @@ import {
   getUserTimezone,
   setUserTimezone,
   getDetectedBrowserTimezone,
-  getFriendlyTimezoneLabel,
 } from '../utils/date.js';
 import { initGlobalPomodoroTicker } from '../utils/pomodoroManager.js';
 
@@ -156,8 +153,7 @@ export default function Main() {
   const [dragOverIndex, setDragOverIndex] = useState(null);
 
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
-  const [isTimezoneModalOpen, setIsTimezoneModalOpen] = useState(false);
-  const [currentTimezone, setCurrentTimezone] = useState(() => getUserTimezone());
+  const [currentTimezone] = useState(() => getDetectedBrowserTimezone());
   const [toastMessage, setToastMessage] = useState('');
   const [pomodoroTickers, setPomodoroTickers] = useState({});
 
@@ -234,8 +230,9 @@ export default function Main() {
 
   const fetchTodayCounts = useCallback(async () => {
     try {
-      const todayStr = getTodayLocalStr(currentTimezone);
-      const res = await apiFetch(`/api/tasks/today-counts?today=${todayStr}&timezone=${encodeURIComponent(currentTimezone)}`);
+      const tz = getUserTimezone();
+      const todayStr = getTodayLocalStr(tz);
+      const res = await apiFetch(`/api/tasks/today-counts?today=${todayStr}&timezone=${encodeURIComponent(tz)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.counts) {
@@ -245,28 +242,17 @@ export default function Main() {
     } catch (err) {
       console.error(err);
     }
-  }, [currentTimezone]);
+  }, []);
 
-  // Sincroniza e detecta automaticamente o fuso horário com o perfil no backend
+  // Sincroniza sempre o fuso horário detectado pelo navegador com o perfil no backend
   const syncProfileTimezone = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/user/profile');
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.user?.timezone) {
-          setUserTimezone(data.user.timezone);
-          setCurrentTimezone(data.user.timezone);
-        } else {
-          // Se ainda não estiver salvo, detecta via Intl e persiste
-          const detected = getDetectedBrowserTimezone();
-          await apiFetch('/api/user/timezone', {
-            method: 'PATCH',
-            body: JSON.stringify({ timezone: detected }),
-          });
-          setUserTimezone(detected);
-          setCurrentTimezone(detected);
-        }
-      }
+      const detected = getDetectedBrowserTimezone();
+      setUserTimezone(detected);
+      await apiFetch('/api/user/timezone', {
+        method: 'PATCH',
+        body: JSON.stringify({ timezone: detected }),
+      });
     } catch (err) {
       console.warn('Aviso ao sincronizar fuso horário:', err);
     }
@@ -277,17 +263,6 @@ export default function Main() {
     fetchTodayCounts();
     syncProfileTimezone();
   }, [fetchUserModels, fetchTodayCounts, syncProfileTimezone]);
-
-  useEffect(() => {
-    const handleTzChange = (e) => {
-      if (e?.detail?.timezone) {
-        setCurrentTimezone(e.detail.timezone);
-        fetchTodayCounts();
-      }
-    };
-    window.addEventListener('focusmod_timezone_changed', handleTzChange);
-    return () => window.removeEventListener('focusmod_timezone_changed', handleTzChange);
-  }, [fetchTodayCounts]);
 
   useEffect(() => {
     const handleTaskEvent = () => {
@@ -485,23 +460,6 @@ export default function Main() {
               {currentUserName}
             </span>
           </div>
-
-          {/* Timezone button */}
-          <button
-            type="button"
-            onClick={() => setIsTimezoneModalOpen(true)}
-            title={`Fuso horário configurado: ${currentTimezone}. Clique para alterar.`}
-            className={`px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-2xs hover:scale-[1.02] active:scale-95 ${
-              isDarkMode
-                ? 'bg-slate-800 hover:bg-slate-700 text-blue-300 border-slate-700'
-                : 'bg-[#e8edf2] hover:bg-[#dde4ec] text-[#124286] border-[#d3dce6]'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5 text-[#1d56af] dark:text-blue-400 shrink-0" />
-            <span className="truncate max-w-[80px] sm:max-w-[140px]">
-              {getFriendlyTimezoneLabel(currentTimezone)}
-            </span>
-          </button>
 
           {/* Dark Mode / Light Mode Toggle Button */}
           <button
@@ -790,18 +748,6 @@ export default function Main() {
         onAddModel={handleDirectAddModel}
         existingModels={userModels}
         isDarkMode={isDarkMode}
-      />
-
-      {/* Timezone Settings & User Profile Modal */}
-      <TimezoneSettingsModal
-        isOpen={isTimezoneModalOpen}
-        onClose={() => setIsTimezoneModalOpen(false)}
-        isDarkMode={isDarkMode}
-        onTimezoneChanged={(tz) => {
-          setCurrentTimezone(tz);
-          fetchTodayCounts();
-          showToast(`Fuso horário atualizado para ${tz}`);
-        }}
       />
 
       {/* Toast Notification */}

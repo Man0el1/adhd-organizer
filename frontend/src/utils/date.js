@@ -25,8 +25,8 @@ export function getDetectedBrowserTimezone() {
  */
 export function getUserTimezone() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY_TIMEZONE);
-    if (saved && typeof saved === 'string') {
+    // Sempre utiliza o fuso horário detectado pelo navegador
+    if (false) {
       return saved;
     }
   } catch (err) {

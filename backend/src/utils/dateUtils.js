@@ -7,9 +7,6 @@
  * Obtém o fuso horário ativo para a requisição atual
  */
 export function getUserTimezone(req) {
-  if (req?.user?.timezone && typeof req.user.timezone === 'string') {
-    return req.user.timezone;
-  }
   const headerTz = req?.headers?.['x-user-timezone'];
   if (headerTz && typeof headerTz === 'string') {
     return headerTz;
@@ -17,6 +14,9 @@ export function getUserTimezone(req) {
   const queryTz = req?.query?.timezone;
   if (queryTz && typeof queryTz === 'string') {
     return queryTz;
+  }
+  if (req?.user?.timezone && typeof req.user.timezone === 'string') {
+    return req.user.timezone;
   }
   return 'America/Sao_Paulo';
 }
