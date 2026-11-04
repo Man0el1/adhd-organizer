@@ -36,6 +36,7 @@ import {
   Loader2,
   Sun,
   Moon,
+  Sparkles,
 } from 'lucide-react';
 
 export const MODEL_TEMPLATES = [
@@ -808,15 +809,27 @@ export default function Main() {
         </main>
       </div>
 
-      {/* Floating Add Task Button (+) */}
-      <button
-        type="button"
-        onClick={() => setIsOverlayOpen(true)}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 w-12 h-12 rounded-full bg-[#1d56af] hover:bg-[#16438a] text-white shadow-xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer ring-4 ring-[#1d56af]/25"
-        title="Adicionar nova tarefa (+)"
-      >
-        <Plus className="w-6 h-6 stroke-[2.5]" />
-      </button>
+      {/* Floating AI & Add Task Buttons */}
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-3">
+        {/* Botão de IA (Sem função por enquanto) */}
+        <button
+          type="button"
+          className="w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-600 via-blue-600 to-cyan-500 hover:from-indigo-500 hover:via-blue-500 hover:to-cyan-400 text-white shadow-xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer ring-4 ring-indigo-500/20"
+          title="Assistente de Inteligência Artificial"
+        >
+          <Sparkles className="w-6 h-6" />
+        </button>
+
+        {/* Floating Add Task Button (+) */}
+        <button
+          type="button"
+          onClick={() => setIsOverlayOpen(true)}
+          className="w-12 h-12 rounded-full bg-[#1d56af] hover:bg-[#16438a] text-white shadow-xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer ring-4 ring-[#1d56af]/25"
+          title="Adicionar nova tarefa (+)"
+        >
+          <Plus className="w-6 h-6 stroke-[2.5]" />
+        </button>
+      </div>
 
       {/* Full Screen Slide-over / Modal for Adding Tasks */}
       <FullScreenOverlay

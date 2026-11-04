@@ -1,5 +1,3 @@
-import { apiFetch } from './api.js';
-
 const STORAGE_PREFIX = 'focusmod_pomodoro_';
 
 export function getStorageKey(modelId = 'default') {
@@ -13,7 +11,6 @@ export const DEFAULT_POMODORO_STATE = {
   targetEndTime: null,
   mode: 'focus', // 'focus' | 'shortBreak' | 'longBreak'
   cyclesCompleted: 0,
-  selectedTask: null,
   completedNotice: '',
 };
 
@@ -117,15 +114,7 @@ export function handleTimerCompletion(modelId = 'default', currentState) {
 
   if (state.mode === 'focus') {
     state.cyclesCompleted = (state.cyclesCompleted || 0) + 1;
-
-    // A finalização do Pomodoro NÃO conclui automaticamente a tarefa associada
-    if (state.selectedTask) {
-      const taskName = state.selectedTask.name;
-      state.completedNotice = `Ciclo de foco finalizado para "${taskName}"! Bom trabalho!`;
-    } else {
-      state.completedNotice = 'Sessão de foco concluída! Hora de uma pausa merecida.';
-    }
-
+    state.completedNotice = 'Sessão de foco concluída! Hora de uma pausa merecida.';
 
     // Configura o descanso (se múltiplo de 4, pausa longa de 15m; senão pausa curta de 5m)
     const isLongBreak = state.cyclesCompleted % 4 === 0;
@@ -220,16 +209,6 @@ export function setPomodoroDuration(modelId = 'default', minutes, mode = 'focus'
   }
   state.completedNotice = '';
 
-  savePomodoroState(modelId, state);
-  return state;
-}
-
-/**
- * Vincula ou desvincula uma tarefa ao Pomodoro
- */
-export function setPomodoroSelectedTask(modelId = 'default', task) {
-  const state = getPomodoroState(modelId);
-  state.selectedTask = task ? { id: task.id, name: task.name, done: Boolean(task.done) } : null;
   savePomodoroState(modelId, state);
   return state;
 }

@@ -12,10 +12,12 @@ import {
   Loader2,
   Edit2,
   Clock,
+  Settings,
 } from 'lucide-react';
 import { apiFetch } from '../../utils/api.js';
 import { getTodayLocalStr } from '../../utils/date.js';
 import TaskFormModal from '../task-form/TaskFormModal.jsx';
+import ModelSettingsModal from './ModelSettingsModal.jsx';
 
 function parseDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -35,24 +37,24 @@ const PERIOD_CONFIG = [
     title: 'Manhã',
     icon: Sun,
     colorText: 'text-amber-500',
-    colorBg: 'bg-amber-100 dark:bg-amber-950/60',
-    badgeBorder: 'border-amber-200 dark:border-amber-800/60',
+    colorBg: 'bg-amber-500/10',
+    badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
   },
   {
     id: 'afternoon',
     title: 'Tarde',
     icon: Sunset,
     colorText: 'text-orange-500',
-    colorBg: 'bg-orange-100 dark:bg-orange-950/60',
-    badgeBorder: 'border-orange-200 dark:border-orange-800/60',
+    colorBg: 'bg-orange-500/10',
+    badgeClass: 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300',
   },
   {
     id: 'night',
     title: 'Noite',
     icon: Moon,
     colorText: 'text-indigo-500',
-    colorBg: 'bg-indigo-100 dark:bg-indigo-950/60',
-    badgeBorder: 'border-indigo-200 dark:border-indigo-800/60',
+    colorBg: 'bg-indigo-500/10',
+    badgeClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
   },
 ];
 
@@ -60,6 +62,7 @@ export default function DailyRoutines({ modelInstance, isDarkMode = false }) {
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [modalPeriod, setModalPeriod] = useState('morning');
 
@@ -208,91 +211,122 @@ export default function DailyRoutines({ modelInstance, isDarkMode = false }) {
   }, [selectedDate, todayStr]);
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {/* Top Header */}
-      <div
-        className={`px-4 sm:px-6 py-3.5 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0 ${
-          isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-[#d3dce6] bg-white'
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400">
-            <Clock className="w-5 h-5" />
+    <div
+      className={`w-full h-full flex-1 flex flex-col p-4 sm:p-6 lg:p-8 min-h-0 overflow-hidden transition-colors ${
+        isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#ebf0f5] text-slate-800'
+      }`}
+    >
+      <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col min-h-0 gap-4">
+        {/* Header em Card Arredondado (igual ao Kanban) */}
+        <div
+          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border rounded-2xl px-5 py-3 shadow-xs shrink-0 transition-colors ${
+            isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-[#f4f7fa] border-[#d3dce6]'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <Clock className="w-5 h-5 stroke-[2.2]" />
+            </div>
+            <div>
+              <h1 className={`text-base sm:text-lg font-bold leading-tight ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{displayName}</h1>
+              <p className="text-xs text-slate-400">
+                {completedCount} de {totalCount} atividades concluídas ({progressPercent}%)
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
-              {displayName}
-            </h1>
-            <p className="text-xs text-slate-500">
-              {completedCount} de {totalCount} atividades concluídas ({progressPercent}%)
-            </p>
-          </div>
-        </div>
 
-        {/* Controles de Navegação da Data & Botão Novo */}
-        <div className="flex items-center gap-2 self-end sm:self-auto">
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-0.5 border border-slate-200 dark:border-slate-700">
-            <button
-              onClick={handlePrevDay}
-              title="Dia anterior"
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleGoToday}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                selectedDate === todayStr
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700'
+          {/* Controles de Navegação da Data & Botão Novo */}
+          <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap">
+            {totalCount > 0 && (
+              <div
+                className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border ${
+                  isDarkMode
+                    ? 'bg-slate-950 border-slate-800'
+                    : 'bg-[#e8edf2] border-[#d3dce6]'
+                }`}
+              >
+                <div
+                  className={`w-20 h-2 rounded-full overflow-hidden ${
+                    isDarkMode ? 'bg-slate-800' : 'bg-slate-300/70'
+                  }`}
+                >
+                  <div
+                    className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  {progressPercent}%
+                </span>
+              </div>
+            )}
+
+            <div
+              className={`flex items-center rounded-xl p-0.5 border ${
+                isDarkMode
+                  ? 'bg-slate-950 border-slate-800'
+                  : 'bg-[#e8edf2] border-[#d3dce6]'
               }`}
             >
-              {dateLabel}
+              <button
+                type="button"
+                onClick={handlePrevDay}
+                title="Dia anterior"
+                className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleGoToday}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                  selectedDate === todayStr
+                    ? 'bg-[#1d56af] text-white shadow-xs'
+                    : 'text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
+                }`}
+              >
+                {dateLabel}
+              </button>
+              <button
+                type="button"
+                onClick={handleNextDay}
+                title="Próximo dia"
+                className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditingTask(null);
+                setModalPeriod('morning');
+                setIsModalOpen(true);
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-[#1d56af] hover:bg-[#174690] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>Nova Tarefa</span>
             </button>
             <button
-              onClick={handleNextDay}
-              title="Próximo dia"
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              title="Configurações do módulo"
+              className={`p-1.5 rounded-xl border transition-colors cursor-pointer shrink-0 ${
+                isDarkMode
+                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                  : 'bg-[#e8edf2] hover:bg-slate-200 text-slate-700 border-[#d3dce6]'
+              }`}
             >
-              <ChevronRight className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
             </button>
           </div>
-
-          <button
-            onClick={() => {
-              setEditingTask(null);
-              setModalPeriod('morning');
-              setIsModalOpen(true);
-            }}
-            className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nova Atividade</span>
-          </button>
         </div>
-      </div>
 
-      {/* Barra de Progresso Global */}
-      {totalCount > 0 && (
-        <div className="px-4 sm:px-6 pt-3 shrink-0">
-          <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Conteúdo: 3 Períodos */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
-        {isLoading && tasks.length === 0 ? (
-          <div className="flex items-center justify-center py-16 text-slate-400">
-            <Loader2 className="w-6 h-6 animate-spin mr-2" />
-            <span>Carregando rotinas...</span>
-          </div>
-        ) : (
-          PERIOD_CONFIG.map((period) => {
+        {/* Grid de 3 Colunas Verticais (Manhã, Tarde, Noite) estilo Kanban */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-h-0 overflow-y-auto md:overflow-hidden pr-0.5">
+          {PERIOD_CONFIG.map((period) => {
             const Icon = period.icon;
             const periodTasks = groupedTasks[period.id] || [];
             const periodDoneCount = periodTasks.filter((t) =>
@@ -302,46 +336,58 @@ export default function DailyRoutines({ modelInstance, isDarkMode = false }) {
             return (
               <div
                 key={period.id}
-                className={`rounded-2xl border transition-colors ${
+                className={`flex flex-col border rounded-2xl p-3 sm:p-3.5 shadow-xs min-h-[300px] md:min-h-0 overflow-hidden transition-colors ${
                   isDarkMode
-                    ? 'bg-slate-900/60 border-slate-800'
-                    : 'bg-white border-[#d3dce6]'
+                    ? 'bg-slate-900/70 border-slate-800'
+                    : 'bg-[#f4f7fa] border-[#d3dce6]'
                 }`}
               >
-                {/* Header do Período */}
-                <div className="p-3.5 sm:p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                {/* Header da Coluna */}
+                <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200 dark:border-slate-800 shrink-0">
                   <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-xl ${period.colorBg} ${period.colorText}`}>
-                      <Icon className="w-4 h-4" />
+                    <div className={`p-1.5 rounded-lg ${period.colorBg} ${period.colorText}`}>
+                      <Icon className="w-3.5 h-3.5" />
                     </div>
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                        {period.title}
-                      </h2>
-                      <span className="text-[11px] text-slate-500 font-medium">
-                        {periodDoneCount} de {periodTasks.length} concluídas
-                      </span>
-                    </div>
+                    <span className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                      {period.title}
+                    </span>
+                    <span
+                      className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${period.badgeClass}`}
+                    >
+                      {periodDoneCount}/{periodTasks.length}
+                    </span>
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => {
                       setEditingTask(null);
                       setModalPeriod(period.id);
                       setIsModalOpen(true);
                     }}
-                    className="p-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                    className="p-1 rounded-lg text-slate-400 hover:text-[#1d56af] hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    title={`Adicionar em ${period.title}`}
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Adicionar</span>
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                   </button>
                 </div>
 
-                {/* Lista de Atividades do Período */}
-                <div className="p-2 sm:p-3 space-y-1.5">
-                  {periodTasks.length === 0 ? (
-                    <div className="text-center py-6 text-xs text-slate-400">
-                      Nenhuma atividade para a {period.title.toLowerCase()}.
+                {/* Cartões da Coluna */}
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-0.5 min-h-0">
+                  {isLoading && tasks.length === 0 ? (
+                    <div className="flex items-center justify-center py-8 text-slate-400 gap-1.5">
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                      <span className="text-xs">Carregando...</span>
+                    </div>
+                  ) : periodTasks.length === 0 ? (
+                    <div
+                      className={`flex items-center justify-center py-8 border border-dashed rounded-xl text-center text-xs ${
+                        isDarkMode
+                          ? 'border-slate-800 text-slate-600'
+                          : 'border-slate-200 text-slate-400'
+                      }`}
+                    >
+                      Nenhuma atividade para a {period.title.toLowerCase()}
                     </div>
                   ) : (
                     periodTasks.map((task) => {
@@ -349,66 +395,70 @@ export default function DailyRoutines({ modelInstance, isDarkMode = false }) {
                       return (
                         <div
                           key={task.id}
-                          className={`group p-2.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${
+                          className={`group border rounded-xl p-3 shadow-xs transition-all space-y-1.5 ${
                             isDone
                               ? isDarkMode
-                                ? 'bg-slate-950/40 border-slate-800/60 opacity-60'
-                                : 'bg-slate-50/70 border-slate-200/60 opacity-60'
+                                ? 'bg-slate-950/40 border-slate-800/60 opacity-65'
+                                : 'bg-white/60 border-[#e2e8f0] opacity-65'
                               : isDarkMode
-                              ? 'bg-slate-900 border-slate-800/80 hover:border-slate-700'
-                              : 'bg-white border-slate-200 hover:border-slate-300'
+                              ? 'bg-slate-950/80 border-slate-800 text-slate-200 hover:border-slate-700'
+                              : 'bg-white border-[#e2e8f0] text-slate-800 hover:border-slate-300'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleTask(task)}
-                              className="text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer shrink-0"
-                            >
-                              {isDone ? (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-100 dark:fill-emerald-950" />
-                              ) : (
-                                <Circle className="w-4 h-4" />
-                              )}
-                            </button>
-
-                            <div className="min-w-0">
-                              <span
-                                className={`text-xs sm:text-sm font-semibold block truncate ${
-                                  isDone
-                                    ? 'line-through text-slate-400 dark:text-slate-500'
-                                    : 'text-slate-800 dark:text-slate-100'
-                                }`}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-2 min-w-0 flex-1">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTask(task)}
+                                className="mt-0.5 text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer shrink-0"
                               >
-                                {task.name}
-                              </span>
-                              {task.description && (
-                                <span className="text-[11px] text-slate-400 truncate block">
-                                  {task.description}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                                {isDone ? (
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-100 dark:fill-emerald-950" />
+                                ) : (
+                                  <Circle className="w-4 h-4" />
+                                )}
+                              </button>
 
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => {
-                                setEditingTask(task);
-                                setModalPeriod(period.id);
-                                setIsModalOpen(true);
-                              }}
-                              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md cursor-pointer"
-                              title="Editar"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded-md cursor-pointer"
-                              title="Excluir"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                              <div className="min-w-0 flex-1">
+                                <h4
+                                  className={`text-xs font-bold leading-snug break-words ${
+                                    isDone
+                                      ? 'line-through text-slate-400 dark:text-slate-500'
+                                      : 'text-slate-800 dark:text-slate-100'
+                                  }`}
+                                >
+                                  {task.name}
+                                </h4>
+                                {task.description && (
+                                  <p className="text-[11px] text-slate-400 dark:text-slate-500 line-clamp-2 mt-0.5">
+                                    {task.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingTask(task);
+                                  setModalPeriod(period.id);
+                                  setIsModalOpen(true);
+                                }}
+                                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md cursor-pointer"
+                                title="Editar"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="p-1 text-slate-400 hover:text-rose-500 rounded-md cursor-pointer"
+                                title="Excluir"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -417,11 +467,18 @@ export default function DailyRoutines({ modelInstance, isDarkMode = false }) {
                 </div>
               </div>
             );
-          })
-        )}
+          })}
+        </div>
       </div>
 
       {/* Modal Unificado */}
+      <ModelSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        modelName={displayName}
+        isDarkMode={isDarkMode}
+      />
+
       <TaskFormModal
         isOpen={isModalOpen}
         onClose={() => {
@@ -429,10 +486,13 @@ export default function DailyRoutines({ modelInstance, isDarkMode = false }) {
           setEditingTask(null);
         }}
         initialModelId={modelId}
+        availableModels={[modelInstance]}
+        lockModel={true}
         initialPeriod={modalPeriod}
         editingTask={editingTask}
         isDarkMode={isDarkMode}
         onTaskSaved={fetchTasks}
+        onTaskCreated={fetchTasks}
       />
     </div>
   );

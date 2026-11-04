@@ -310,7 +310,7 @@ export const getTasks = async (req, res) => {
       };
 
       if (typeKey) {
-        const matchingModel = await Model.findOne({ where: { type: typeKey } });
+        const [matchingModel] = await Model.findOrCreate({ where: { type: typeKey }, defaults: { name: typeKey, type: typeKey } });
         if (matchingModel) {
           whereClause.id_model = matchingModel.id_model;
         }
@@ -370,7 +370,7 @@ export const getTasks = async (req, res) => {
 
     if (modelId) {
       filtered = filtered.filter((t) => {
-        if (t.modelId === modelId) return true;
+        if (t.modelId === modelId || extractModelType(t.modelId) === extractModelType(modelType || modelId)) return true;
         if (Array.isArray(t.modelIds) && t.modelIds.includes(modelId)) return true;
 
         if (modelId === 'routine' && (t.modelId === 'routine' || (t.modelId?.includes('routine') && !t.modelId?.includes('daily')) || t.modelIds?.includes('routine'))) return true;
@@ -393,7 +393,7 @@ export const getTasks = async (req, res) => {
     const isRoutine =
       modelId === 'routine' ||
       modelType === 'routine' ||
-      (typeof modelId === 'string' && modelId.includes('routine'));
+      (typeof modelId === 'string' && modelId.includes('routine') && !modelId.includes('daily'));
 
     if (isRoutine) {
       const isViewingToday = viewDateStr === todayStr;
@@ -585,23 +585,23 @@ export const createTask = async (req, res) => {
     const isKanban =
       finalModelId === 'kanban' ||
       (typeof finalModelId === 'string' && finalModelId.includes('kanban')) ||
-      column_id !== undefined;
+      false;
 
     const isMatrix =
       finalModelId === 'priority-matrix' ||
       (typeof finalModelId === 'string' && (finalModelId.includes('matrix') || finalModelId.includes('priority'))) ||
-      urgency !== undefined ||
-      importance !== undefined;
+      false ||
+      false;
 
     const isHabit =
       finalModelId === 'habits' ||
       (typeof finalModelId === 'string' && finalModelId.includes('habit')) ||
-      frequency !== undefined;
+      false;
 
     const isDailyRoutine =
       finalModelId === 'daily-routines' ||
       (typeof finalModelId === 'string' && (finalModelId.includes('daily') || finalModelId.includes('rotina'))) ||
-      period !== undefined;
+      false;
 
     if (isRoutine && !startTime) {
       return res.status(400).json({
@@ -623,7 +623,7 @@ export const createTask = async (req, res) => {
       let targetIdModel = null;
 
       if (typeKey) {
-        const foundModel = await Model.findOne({ where: { type: typeKey } });
+        const [foundModel] = await Model.findOrCreate({ where: { type: typeKey }, defaults: { name: typeKey, type: typeKey } });
         if (foundModel) {
           targetIdModel = foundModel.id_model;
         }
@@ -909,7 +909,7 @@ export const updateTask = async (req, res) => {
       if (modelId) {
         const typeKey = extractModelType(modelId);
         if (typeKey) {
-          const foundModel = await Model.findOne({ where: { type: typeKey } });
+          const [foundModel] = await Model.findOrCreate({ where: { type: typeKey }, defaults: { name: typeKey, type: typeKey } });
           if (foundModel) updates.id_model = foundModel.id_model;
         } else if (!isNaN(Number(modelId))) {
           updates.id_model = Number(modelId);

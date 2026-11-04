@@ -14,18 +14,47 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import { apiFetch } from '../../utils/api.js';
 import { getTodayLocalStr } from '../../utils/date.js';
 import CommonFields from './CommonFields.jsx';
 import CalendarFields from './model-fields/CalendarFields.jsx';
 import VisualAgendaFields from './model-fields/VisualAgendaFields.jsx';
-import BrainDumpFields from './model-fields/BrainDumpFields.jsx';
 import MicrotasksFields from './model-fields/MicrotasksFields.jsx';
 import KanbanFields from './model-fields/KanbanFields.jsx';
 import MatrixFields from './model-fields/MatrixFields.jsx';
 import HabitFields from './model-fields/HabitFields.jsx';
 import DailyRoutineFields from './model-fields/DailyRoutineFields.jsx';
+
+export function getCurrentHHMM() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+export function getDefaultStartAndEndTime() {
+  const now = new Date();
+  const totalNowMins = now.getHours() * 60 + now.getMinutes();
+  // Próximo múltiplo de 10 minutos (pelo menos +5 min à frente do minuto atual)
+  let startMins = Math.ceil((totalNowMins + 5) / 10) * 10;
+  if (startMins >= 24 * 60) {
+    startMins = 23 * 60 + 50;
+  }
+  const endMins = Math.min(23 * 60 + 59, startMins + 60);
+
+  const startH = String(Math.floor(startMins / 60)).padStart(2, '0');
+  const startM = String(startMins % 60).padStart(2, '0');
+  const endH = String(Math.floor(endMins / 60)).padStart(2, '0');
+  const endM = String(endMins % 60).padStart(2, '0');
+
+  return {
+    startTime: `${startH}:${startM}`,
+    endTime: `${endH}:${endM}`,
+  };
+}
 
 const FALLBACK_SELECTABLE_MODELS = [
   {
@@ -107,7 +136,7 @@ export function normalizeModelType(model) {
   if (typeof model === 'string') {
     const s = model.toLowerCase();
     if (s.includes('habit') || s.includes('hábito')) return 'habits';
-    if (s.includes('daily') || s.includes('rotinas di') || s.includes('rotinas-di') || s.includes('daily-routine')) return 'daily-routines';
+    if (s.includes('daily') || s.includes('rotina') || s.includes('daily-routine')) return 'daily-routines';
     if (s.includes('micro')) return 'microtasks';
     if (s.includes('kanban')) return 'kanban';
     if (s.includes('matriz') || s.includes('priorit') || s.includes('matrix')) return 'priority-matrix';
@@ -143,6 +172,7 @@ export default function TaskFormModal({
   initialModelId = null,
   initialDate = null,
   initialStartTime = null,
+  initialEndTime = null,
   initialColumnId = 'todo',
   initialUrgency = true,
   initialImportance = true,
@@ -206,12 +236,15 @@ export default function TaskFormModal({
   }, [availableModels]);
 
   const [selectedModelId, setSelectedModelId] = useState('');
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const [taskName, setTaskName] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(() => getTodayLocalStr());
   const [hasTime, setHasTime] = useState(true);
-  const [startTime, setStartTime] = useState('08:00');
-  const [endTime, setEndTime] = useState('09:00');
+  const [startTime, setStartTime] = useState(() => getDefaultStartAndEndTime().startTime);
+  const [endTime, setEndTime] = useState(() => getDefaultStartAndEndTime().endTime);
   const [recurrence, setRecurrence] = useState('none');
 
   // Novos campos específicos
@@ -239,15 +272,21 @@ export default function TaskFormModal({
     if (!wasOpen && isOpen) {
       setErrorMsg('');
       setSuccessMsg('');
+      setIsModelDropdownOpen(false);
+
+      const todayStr = getTodayLocalStr();
+      const defaultTimes = getDefaultStartAndEndTime();
+      const nowHHMM = getCurrentHHMM();
 
       if (editingTask) {
         // Modo Edição: inicializa com os dados da tarefa existente
+        const existingDate = editingTask.date || editingTask.startDate || todayStr;
         setTaskName(editingTask.name || '');
         setDescription(editingTask.description || editingTask.notes || '');
-        setDate(editingTask.date || editingTask.startDate || getTodayLocalStr());
+        setDate(existingDate < todayStr ? todayStr : existingDate);
         setHasTime(Boolean(editingTask.startTime));
-        setStartTime(editingTask.startTime || '08:00');
-        setEndTime(editingTask.endTime || '09:00');
+        setStartTime(editingTask.startTime || defaultTimes.startTime);
+        setEndTime(editingTask.endTime || defaultTimes.endTime);
         setRecurrence(editingTask.recurrence || 'none');
 
         // Campos específicos
@@ -272,13 +311,27 @@ export default function TaskFormModal({
         );
         setSelectedModelId(matchingModel ? String(matchingModel.id) : String(selectableModels[0]?.id || ''));
       } else {
-        // Modo Criação: inicializa campos limpos
+        // Modo Criação: garante que a data nunca comece antes do dia atual
+        const resolvedDate = initialDate && initialDate >= todayStr ? initialDate : todayStr;
+        const isTodaySelected = resolvedDate === todayStr;
+
+        // Se foi sugerido um horário, usa-o apenas se não estiver no passado no dia de hoje
+        const validSuggestedStart =
+          initialStartTime && (!isTodaySelected || initialStartTime >= nowHHMM)
+            ? initialStartTime
+            : defaultTimes.startTime;
+
+        const validSuggestedEnd =
+          initialEndTime && initialEndTime > validSuggestedStart
+            ? initialEndTime
+            : defaultTimes.endTime;
+
         setTaskName('');
         setDescription('');
-        setDate(initialDate || getTodayLocalStr());
-        setHasTime(Boolean(initialStartTime) || true);
-        setStartTime(initialStartTime || '08:00');
-        setEndTime(initialEndTime || '09:00');
+        setDate(resolvedDate);
+        setHasTime(true);
+        setStartTime(validSuggestedStart);
+        setEndTime(validSuggestedEnd);
         setRecurrence('none');
 
         setSubtasks([]);
@@ -318,18 +371,37 @@ export default function TaskFormModal({
     selectableModels,
   ]);
 
+  // Fecha o dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsModelDropdownOpen(false);
+      }
+    };
+    if (isModelDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isModelDropdownOpen]);
+
   // Tecla Escape para fechar
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        if (isModelDropdownOpen) {
+          setIsModelDropdownOpen(false);
+        } else {
+          onClose();
+        }
       }
     };
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
     }
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, isModelDropdownOpen, onClose]);
 
   // Modelo atualmente selecionado
   const selectedModel = useMemo(() => {
@@ -350,6 +422,15 @@ export default function TaskFormModal({
   }, [selectableModels, selectedModelId, initialModelId]);
 
   const activeModelType = normalizeModelType(selectedModel);
+  const SelectedIcon = selectedModel?.icon || CalendarIcon;
+
+  const todayStr = getTodayLocalStr();
+  const minTimeForSelectedDate = date === todayStr ? getCurrentHHMM() : '';
+
+  const handleDateChange = (newDate) => {
+    setErrorMsg('');
+    setDate(newDate);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -358,14 +439,41 @@ export default function TaskFormModal({
       return;
     }
 
+    const currentTodayStr = getTodayLocalStr();
+    const currentNowHHMM = getCurrentHHMM();
+
+    if (activeModelType === 'routine' || activeModelType === 'calendario') {
+      if (!date) {
+        setErrorMsg('Informe a data da tarefa.');
+        return;
+      }
+
+      if (date < currentTodayStr) {
+        setErrorMsg('Não é permitido agendar uma tarefa para uma data anterior ao dia atual.');
+        return;
+      }
+    }
+
     if (activeModelType === 'routine' && (!startTime || !hasTime)) {
       setErrorMsg('A Agenda Visual requer um horário de início para organizar sua rotina.');
       return;
     }
 
-    if ((activeModelType === 'routine' || activeModelType === 'calendario') && !date) {
-      setErrorMsg('Informe a data da tarefa.');
-      return;
+    if (
+      (activeModelType === 'routine' || (activeModelType === 'calendario' && hasTime)) &&
+      startTime
+    ) {
+      if (date === currentTodayStr && startTime < currentNowHHMM) {
+        setErrorMsg(
+          `Para tarefas no dia de hoje, o horário de início não pode ser anterior ao horário atual (${currentNowHHMM}).`
+        );
+        return;
+      }
+
+      if (endTime && endTime < startTime) {
+        setErrorMsg('O horário de término não pode ser anterior ao horário de início.');
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -505,7 +613,7 @@ export default function TaskFormModal({
 
       {/* Painel Lateral / Modal */}
       <div
-        className={`relative z-50 w-full sm:w-[500px] md:w-[560px] h-full border-l shadow-2xl flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-200 transition-colors ${
+        className={`relative z-50 w-full sm:w-[440px] md:w-[480px] h-full border-l shadow-2xl flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-200 transition-colors ${
           isDarkMode
             ? 'bg-slate-900 border-slate-800 text-slate-100'
             : 'bg-[#f4f7fa] border-[#d3dce6] text-slate-900'
@@ -525,7 +633,11 @@ export default function TaskFormModal({
                 <Plus className="w-4 h-4 stroke-[2.5]" />
               )}
             </div>
-            <h2 className="text-sm sm:text-base font-bold leading-tight">
+            <h2
+              className={`text-sm sm:text-base font-bold leading-tight ${
+                isDarkMode ? 'text-slate-100' : 'text-slate-900'
+              }`}
+            >
               {editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}
             </h2>
           </div>
@@ -565,57 +677,126 @@ export default function TaskFormModal({
               </div>
             )}
 
-            {/* Seletor de Modelo (Permite alternar livremente qual modelo a tarefa pertence) */}
+            {/* Seletor de Modelo em formato Dropdown */}
             {!editingTask && !lockModel && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Escolha o Modelo <span className="text-rose-500">*</span>
-                  </label>
-                  <span className="text-[10px] text-[#1d56af] font-semibold truncate max-w-[200px]">
-                    {selectedModel?.name || 'Selecione um'}
-                  </span>
-                </div>
+              <div className="space-y-1.5" ref={dropdownRef}>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Módulo de Destino <span className="text-rose-500">*</span>
+                </label>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {selectableModels.map((mod) => {
-                    const Icon = mod.icon;
-                    const isSelected = String(selectedModelId) === String(mod.id);
-
-                    return (
-                      <button
-                        key={mod.id}
-                        type="button"
-                        onClick={() => setSelectedModelId(String(mod.id))}
-                        className={`px-2.5 py-2 rounded-xl border text-left cursor-pointer transition-all flex items-center justify-between gap-1.5 ${
-                          isSelected
-                            ? isDarkMode
-                              ? 'bg-blue-950/70 border-blue-700 text-blue-100 ring-1 ring-blue-600/40 shadow-xs'
-                              : 'bg-[#e3edfa] border-[#a3c5ed] text-[#124286] ring-1 ring-[#1d56af]/25 shadow-xs'
-                            : isDarkMode
-                            ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
-                            : 'bg-white border-[#d3dce6] text-slate-600 hover:border-[#b9cee2]'
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsModelDropdownOpen((prev) => !prev)}
+                    className={`w-full px-3 py-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-center justify-between gap-2.5 ${
+                      isModelDropdownOpen
+                        ? isDarkMode
+                          ? 'bg-slate-800 border-blue-600 ring-2 ring-blue-500/20 text-slate-100'
+                          : 'bg-white border-[#1d56af] ring-2 ring-[#1d56af]/15 text-slate-900'
+                        : isDarkMode
+                        ? 'bg-slate-800/90 border-slate-700 hover:border-slate-600 text-slate-100'
+                        : 'bg-white border-[#d3dce6] hover:border-[#b9cee2] text-slate-800 shadow-2xs'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          isDarkMode
+                            ? 'bg-slate-900 border border-slate-700'
+                            : 'bg-[#f4f7fa] border border-[#e2e8f0]'
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 truncate">
-                          <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? mod.iconColor : 'text-slate-400'}`} />
-                          <span className="text-xs font-semibold truncate">{mod.name}</span>
-                        </div>
+                        <SelectedIcon className={`w-4 h-4 ${selectedModel?.iconColor || 'text-[#1d56af]'}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm font-bold truncate leading-tight">
+                          {selectedModel?.name || 'Selecione um módulo'}
+                        </p>
+                        {selectedModel?.hint && (
+                          <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                            {selectedModel.hint}
+                          </p>
+                        )}
+                      </div>
+                    </div>
 
-                        <div
-                          className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                            isSelected
-                              ? 'border-[#1d56af] bg-[#1d56af]'
-                              : isDarkMode
-                              ? 'border-slate-600 bg-transparent'
-                              : 'border-slate-300 bg-transparent'
-                          }`}
-                        >
-                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </div>
-                      </button>
-                    );
-                  })}
+                    <ChevronDown
+                      className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${
+                        isModelDropdownOpen ? 'rotate-180 text-[#1d56af]' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {isModelDropdownOpen && (
+                    <div
+                      className={`absolute left-0 right-0 z-30 mt-1.5 rounded-xl border shadow-xl max-h-64 overflow-y-auto p-1.5 space-y-0.5 animate-in fade-in zoom-in-95 duration-150 ${
+                        isDarkMode
+                          ? 'bg-slate-900 border-slate-700 text-slate-100'
+                          : 'bg-white border-[#d3dce6] text-slate-800'
+                      }`}
+                    >
+                      {selectableModels.map((mod) => {
+                        const Icon = mod.icon;
+                        const isSelected = String(selectedModel?.id) === String(mod.id);
+
+                        return (
+                          <button
+                            key={mod.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedModelId(String(mod.id));
+                              setIsModelDropdownOpen(false);
+                            }}
+                            className={`w-full px-2.5 py-2 rounded-lg text-left cursor-pointer transition-colors flex items-center justify-between gap-2 ${
+                              isSelected
+                                ? isDarkMode
+                                  ? 'bg-blue-950/70 text-blue-100'
+                                  : 'bg-[#e3edfa] text-[#124286]'
+                                : isDarkMode
+                                ? 'hover:bg-slate-800 text-slate-300'
+                                : 'hover:bg-[#f4f7fa] text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div
+                                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                  isSelected
+                                    ? isDarkMode
+                                      ? 'bg-blue-900/60'
+                                      : 'bg-white shadow-2xs'
+                                    : isDarkMode
+                                    ? 'bg-slate-800'
+                                    : 'bg-[#f4f7fa]'
+                                }`}
+                              >
+                                <Icon className={`w-3.5 h-3.5 ${mod.iconColor}`} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold truncate leading-tight">
+                                  {mod.name}
+                                </p>
+                                <p
+                                  className={`text-[10px] truncate ${
+                                    isSelected
+                                      ? isDarkMode
+                                        ? 'text-blue-300/80'
+                                        : 'text-[#1d56af]/80'
+                                      : 'text-slate-400'
+                                  }`}
+                                >
+                                  {mod.hint}
+                                </p>
+                              </div>
+                            </div>
+
+                            {isSelected && (
+                              <Check className="w-4 h-4 shrink-0 text-[#1d56af]" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -630,19 +811,27 @@ export default function TaskFormModal({
               autoFocus={!editingTask}
             />
 
-            {/* Campos Específicos por Modelo (Renderizados diretamente sem card genérico de Agendamento) */}
+            {/* Campos Específicos por Modelo */}
             {activeModelType === 'calendario' && (
               <CalendarFields
                 date={date}
-                onDateChange={setDate}
+                onDateChange={handleDateChange}
                 startTime={startTime}
                 endTime={endTime}
-                onStartTimeChange={setStartTime}
-                onEndTimeChange={setEndTime}
+                onStartTimeChange={(val) => {
+                  setErrorMsg('');
+                  setStartTime(val);
+                }}
+                onEndTimeChange={(val) => {
+                  setErrorMsg('');
+                  setEndTime(val);
+                }}
                 hasTime={hasTime}
                 onToggleHasTime={setHasTime}
                 recurrence={recurrence}
                 onRecurrenceChange={setRecurrence}
+                minDate={todayStr}
+                minTime={minTimeForSelectedDate}
                 isDarkMode={isDarkMode}
               />
             )}
@@ -650,19 +839,23 @@ export default function TaskFormModal({
             {activeModelType === 'routine' && (
               <VisualAgendaFields
                 date={date}
-                onDateChange={setDate}
+                onDateChange={handleDateChange}
                 startTime={startTime}
                 endTime={endTime}
-                onStartTimeChange={setStartTime}
-                onEndTimeChange={setEndTime}
+                onStartTimeChange={(val) => {
+                  setErrorMsg('');
+                  setStartTime(val);
+                }}
+                onEndTimeChange={(val) => {
+                  setErrorMsg('');
+                  setEndTime(val);
+                }}
                 recurrence={recurrence}
                 onRecurrenceChange={setRecurrence}
+                minDate={todayStr}
+                minTime={minTimeForSelectedDate}
                 isDarkMode={isDarkMode}
               />
-            )}
-
-            {activeModelType === 'brain-dump' && (
-              <BrainDumpFields isDarkMode={isDarkMode} />
             )}
 
             {activeModelType === 'microtasks' && (

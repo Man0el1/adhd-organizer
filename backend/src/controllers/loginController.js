@@ -1,6 +1,6 @@
 import { Account } from "../models/accountModel.js";
 import jwt from "jsonwebtoken";
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 
 export const accountExists = async (req, res) => {
   try {

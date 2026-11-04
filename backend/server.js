@@ -3,6 +3,7 @@ import sequelize from './src/database/sequelize.js';
 import routes from './src/routes.js';
 import './src/models/associations.js';
 import { seedDefaultAccounts } from './src/models/accountModel.js';
+import { seedDefaultModels } from './src/models/modelModel.js';
 import cors from 'cors';
 
 const app = express();
@@ -16,6 +17,7 @@ app.use(routes);
     await sequelize.authenticate();
     console.log('Banco de dados conectado com sucesso');
     await sequelize.sync();
+    await seedDefaultModels();
     await seedDefaultAccounts();
 
     app.listen(8080, () => {

@@ -7,11 +7,27 @@
   --font-body: 'Plus Jakarta Sans', sans-serif;
 }
 
+html {
+  color-scheme: light;
+  scrollbar-color: #cbd5e1 #ebf0f5;
+}
+
+html.dark {
+  color-scheme: dark;
+  scrollbar-color: #334155 #0f172a;
+}
+
 body {
   font-family: var(--font-body);
   background-color: #ebf0f5;
   color: #1e293b;
   scroll-behavior: auto;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark body {
+  background-color: #020617;
+  color: #f1f5f9;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -35,4 +51,20 @@ h1, h2, h3, h4, h5, h6 {
 
 *::-webkit-scrollbar-thumb:hover {
   background: #1d56af;
+}
+
+html.dark *::-webkit-scrollbar-track,
+html.dark::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+html.dark *::-webkit-scrollbar-thumb,
+html.dark::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+html.dark *::-webkit-scrollbar-thumb:hover,
+html.dark::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
 }

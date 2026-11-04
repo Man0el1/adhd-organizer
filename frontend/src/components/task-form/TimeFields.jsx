@@ -2,7 +2,7 @@ import React from 'react';
 import { Clock } from 'lucide-react';
 
 // Adiciona minutos a um horário no formato HH:MM
-export function addMinutesToTime(timeStr, minutesToAdd = 30) {
+export function addMinutesToTime(timeStr, minutesToAdd = 60) {
   if (!timeStr) return '';
   const [h, m] = timeStr.split(':').map((v) => parseInt(v, 10));
   if (isNaN(h) || isNaN(m)) return timeStr;
@@ -25,20 +25,12 @@ export default function TimeFields({
   onToggleHasTime = null,
   isTimeRequired = false,
   isDarkMode = false,
+  minTime = '',
   toggleLabel = 'Definir horário específico',
 }) {
-  const handleStartChange = (val) => {
-    onStartTimeChange(val);
-    if (val && endTime && val >= endTime) {
-      onEndTimeChange(addMinutesToTime(val, 30));
-    }
-  };
-
-  const handleEndChange = (val) => {
-    if (startTime && val && startTime >= val) {
-      onEndTimeChange(addMinutesToTime(startTime, 30));
-    } else {
-      onEndTimeChange(val);
+  const handleStartBlur = () => {
+    if (startTime && endTime && startTime >= endTime) {
+      onEndTimeChange(addMinutesToTime(startTime, 60));
     }
   };
 
@@ -68,8 +60,10 @@ export default function TimeFields({
             <input
               type="time"
               required={isTimeRequired}
+              min={minTime || undefined}
               value={startTime || ''}
-              onChange={(e) => handleStartChange(e.target.value)}
+              onChange={(e) => onStartTimeChange(e.target.value)}
+              onBlur={handleStartBlur}
               className={`w-full rounded-lg px-2.5 py-1.5 text-xs outline-none border transition-colors ${
                 isTimeRequired ? 'border-[#1d56af]' : isDarkMode ? 'border-slate-700' : 'border-[#d3dce6]'
               } ${
@@ -86,8 +80,9 @@ export default function TimeFields({
             </label>
             <input
               type="time"
+              min={startTime || minTime || undefined}
               value={endTime || ''}
-              onChange={(e) => handleEndChange(e.target.value)}
+              onChange={(e) => onEndTimeChange(e.target.value)}
               className={`w-full rounded-lg px-2.5 py-1.5 text-xs outline-none border transition-colors ${
                 isDarkMode
                   ? 'bg-slate-900 border-slate-700 text-white focus:border-[#1d56af]'

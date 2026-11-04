@@ -15,6 +15,8 @@ export default function CalendarFields({
   onToggleHasTime,
   recurrence,
   onRecurrenceChange,
+  minDate = '',
+  minTime = '',
   isDarkMode = false,
 }) {
   return (
@@ -43,6 +45,7 @@ export default function CalendarFields({
           onChange={onDateChange}
           label="Data do Evento"
           required={true}
+          min={minDate}
           isDarkMode={isDarkMode}
         />
 
@@ -54,6 +57,7 @@ export default function CalendarFields({
           hasTime={hasTime}
           onToggleHasTime={onToggleHasTime}
           isTimeRequired={false}
+          minTime={minTime}
           isDarkMode={isDarkMode}
           toggleLabel="Definir horário na linha do tempo"
         />

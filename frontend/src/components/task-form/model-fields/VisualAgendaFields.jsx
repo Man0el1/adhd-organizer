@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import DateField from '../DateField.jsx';
 import TimeFields from '../TimeFields.jsx';
 import RecurrenceField from '../RecurrenceField.jsx';
@@ -13,6 +13,8 @@ export default function VisualAgendaFields({
   onEndTimeChange,
   recurrence,
   onRecurrenceChange,
+  minDate = '',
+  minTime = '',
   isDarkMode = false,
 }) {
   return (
@@ -41,6 +43,7 @@ export default function VisualAgendaFields({
           onChange={onDateChange}
           label="Data da Atividade"
           required={true}
+          min={minDate}
           isDarkMode={isDarkMode}
         />
 
@@ -52,6 +55,7 @@ export default function VisualAgendaFields({
           hasTime={true}
           onToggleHasTime={null}
           isTimeRequired={true}
+          minTime={minTime}
           isDarkMode={isDarkMode}
         />
 
