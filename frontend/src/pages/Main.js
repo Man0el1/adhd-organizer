@@ -10,6 +10,7 @@ import HabitTracker from '../components/ModelsUi/HabitTracker.jsx';
 import DailyRoutines from '../components/ModelsUi/DailyRoutines.jsx';
 import FullScreenOverlay from '../components/ScreenOverlay.js';
 import AddModelModal from '../components/AddModelModal.js';
+import AiTaskModal from '../components/AiTaskModal.jsx';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../utils/api.js';
 import {
@@ -208,6 +209,7 @@ export default function Main() {
   const [dragOverIndex, setDragOverIndex] = useState(null);
 
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [currentTimezone] = useState(() => getDetectedBrowserTimezone());
   const [toastMessage, setToastMessage] = useState('');
   const [pomodoroTickers, setPomodoroTickers] = useState({});
@@ -811,9 +813,10 @@ export default function Main() {
 
       {/* Floating AI & Add Task Buttons */}
       <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-3">
-        {/* Botão de IA (Sem função por enquanto) */}
+        {/* Botão de IA */}
         <button
           type="button"
+          onClick={() => setIsAiModalOpen(true)}
           className="w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-600 via-blue-600 to-cyan-500 hover:from-indigo-500 hover:via-blue-500 hover:to-cyan-400 text-white shadow-xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer ring-4 ring-indigo-500/20"
           title="Assistente de Inteligência Artificial"
         >
@@ -838,6 +841,17 @@ export default function Main() {
         onTaskCreated={handleTaskCreated}
         availableModels={userModels}
         initialModelId={activeModelId}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* AI Task Modal (Interpretação DeepSeek -> Confirmação -> Criação) */}
+      <AiTaskModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        onTaskCreated={(task) => {
+          handleTaskCreated(task);
+          showToast('Tarefa criada com sucesso via IA!');
+        }}
         isDarkMode={isDarkMode}
       />
 

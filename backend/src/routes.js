@@ -18,6 +18,7 @@ import {
 } from './controllers/taskController.js';
 import { getUserModels, updateUserModels } from './controllers/userModelController.js';
 import { getUserProfile, updateUserTimezone, updateUserProfile } from './controllers/userProfileController.js';
+import { interpretTask } from './controllers/aiTaskController.js';
 
 // Middlewares
 import { blockLoggedIn } from './middlewares/blockLoggedIn.js';
@@ -54,5 +55,8 @@ route.delete('/api/tasks/subtasks/:subtaskId', checkToken, deleteSubtask);
 // User models preference routes (rotas protegidas com checkToken)
 route.get('/api/user/models', checkToken, getUserModels);
 route.put('/api/user/models', checkToken, updateUserModels);
+
+// AI Task Interpretation route (não salva no banco, retorna dados estruturados para confirmação)
+route.post('/api/ai/interpret-task', checkToken, interpretTask);
 
 export default route;
